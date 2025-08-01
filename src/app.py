@@ -9,17 +9,17 @@ from dotenv import load_dotenv
 import logging
 
 # Import your existing modules
-from claim_extractor import ClaimExtractor
-from pdf_parser import DocumentManager
+from linked_claims_extractor import ClaimExtractor
+from pdf_parser.document_manager import DocumentManager
 
 # Load environment variables
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates')
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here')
 
 # Configure upload settings
-UPLOAD_FOLDER = 'uploads'
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 ALLOWED_EXTENSIONS = {'pdf'}
 MAX_CONTENT_LENGTH = 80 * 1024 * 1024  # 80MB max file size
 
