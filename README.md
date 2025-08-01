@@ -1,92 +1,92 @@
-<<<<<<< HEAD
-# Parse PDF Files into Verifiable Claims
+# Linked Claims Extraction Service
 
-This project processes PDF files into structured chunks of text and images, making it easier to analyze and verify claims. It is designed to work alongside the **Linked Claims Extractor** for extracting and visualizing claims from PDFs.
+Web service for extracting structured claims from PDF documents and pushing them to LinkedTrust.
 
----
+**Live Demo**: [https://extract.linkedtrust.us](https://extract.linkedtrust.us)
 
-## Local Development and Testing
+## Overview
 
-### Quick Setup
-From the root directory of this repo, run the setup script:
+This service provides a web interface and API for:
+- Uploading PDF documents
+- Extracting verifiable claims using AI
+- Reviewing and editing claims
+- Publishing claims to the LinkedTrust platform
+
+## Installation
+
+### Quick Start (Development)
 
 ```bash
-./setup_local_dev.sh
-```
+# Clone the repository
+git clone git@github.com:Cooperation-org/linked-claims-extraction-service.git
+cd linked-claims-extraction-service
 
-Alternatively, you can set up the environment manually:
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
+# Install dependencies
 pip install -r requirements.txt
-pip install -e .
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your API keys
+
+# Run the service
+python src/app.py
 ```
 
----
+### Production Deployment
 
-## Running the Code
+See [pdf_parser_DEPLOYMENT_GUIDE.MD](pdf_parser_DEPLOYMENT_GUIDE.MD) for detailed production deployment instructions.
 
-### Start a REPL (Read-Eval-Print Loop)
-To interact with the code in a Python REPL:
+## Configuration
 
-```bash
-python src/main.py
+Create a `.env` file with:
+
+```env
+# LinkedTrust API credentials
+LINKEDTRUST_EMAIL=your-email@example.com
+LINKEDTRUST_PASSWORD=your-password
+LINKEDTRUST_BASE_URL=https://dev.linkedtrust.us
+
+# AI API keys
+ANTHROPIC_API_KEY=your-anthropic-key
+# OPENAI_API_KEY=your-openai-key  # Optional
+
+# Flask configuration
+FLASK_SECRET_KEY=your-secret-key
+FLASK_PORT=5050
+FLASK_DEBUG=False
 ```
 
-### Visualize Claims from a PDF
-To process a PDF and generate an HTML file visualizing all the claims:
+## API Endpoints
 
-```bash
-python src/claim_viz.py
+- `GET /` - Upload interface
+- `POST /upload` - Upload and process PDF
+- `GET /claims` - View extracted claims
+- `POST /api/claims/<claim_id>/publish` - Publish all claims
+- `POST /api/claims/<claim_id>/publish/<claim_index>` - Publish single claim
+
+## Architecture
+
+```
+linked-claims-extraction-service/
+├── src/
+│   ├── app.py              # Flask application
+│   ├── templates/          # HTML templates
+│   └── pdf_parser/         # PDF processing logic
+├── requirements.txt        # Python dependencies
+└── gunicorn.conf.py       # Production server config
 ```
 
----
+## Dependencies
 
-## Local Development with `claim_extractor`
-
-If you are modifying both this project and the `claim_extractor` package simultaneously, you can force the use of the local `claim_extractor` as follows:
-
-1. Make changes to the `claim_extractor` files, including updating the version in `setup.py`.
-2. Uninstall the existing `linked-claims-extractor` package:
-
-   ```bash
-   pip uninstall linked-claims-extractor
-   ```
-3. Install the local version of `claim_extractor`:
-
-   ```bash
-   pip install -e ../claim_extractor
-   ```
-4. Verify that the new version is installed:
-
-   ```bash
-   pip list | grep linked-claims-extractor
-   ```
-
----
-
-## Contributing
-
-Contributions are welcome! If you'd like to contribute, please follow these steps:
-1. Fork the repository.
-2. Create a new branch for your feature or bug fix.
-3. Submit a pull request with a detailed description of your changes.
-
----
+- [linked-claims-extractor](https://pypi.org/project/linked-claims-extractor/) - Core extraction library
+- Flask - Web framework
+- PyMuPDF & pdfplumber - PDF processing
+- Gunicorn - Production WSGI server
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
-=======
-Run with
-
-`python app.py`
-
-
-Call like so:
-
-```
-curl -X POST  [host address]/extract -H "Content-Type: application/json" -d '{"text":"I am an uber driver i want to get into sales ive been driving uber for 2 years now"}'
-```
->>>>>>> source/service-only
+MIT License - see LICENSE file
