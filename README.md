@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Parse PDF Files into Verifiable Claims
 
 This project processes PDF files into structured chunks of text and images, making it easier to analyze and verify claims. It is designed to work alongside the **Linked Claims Extractor** for extracting and visualizing claims from PDFs.
@@ -77,3 +78,15 @@ Contributions are welcome! If you'd like to contribute, please follow these step
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+=======
+Run with
+
+`python app.py`
+
+
+Call like so:
+
+```
+curl -X POST  [host address]/extract -H "Content-Type: application/json" -d '{"text":"I am an uber driver i want to get into sales ive been driving uber for 2 years now"}'
+```
+>>>>>>> source/service-only
