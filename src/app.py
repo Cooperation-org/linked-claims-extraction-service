@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 import logging
 
 # Import your existing modules
-from linked_claims_extractor import ClaimExtractor
+from claim_extractor import ClaimExtractor
 from pdf_parser.document_manager import DocumentManager
 
 # Load environment variables
