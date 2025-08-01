@@ -10,7 +10,7 @@ import logging
 
 # Import your existing modules
 from claim_extractor import ClaimExtractor
-from pdf_parser.document_manager import DocumentManager
+from pdf_parser import SimpleDocumentManager
 
 # Load environment variables
 load_dotenv()
@@ -255,7 +255,7 @@ def upload_file():
             
             # Process PDF and extract claims
             try:
-                docmgr = DocumentManager()
+                docmgr = SimpleDocumentManager()
                 page_texts_with_claims = _process_pdf(docmgr, file_path)
                 
                 # Generate unique claim ID

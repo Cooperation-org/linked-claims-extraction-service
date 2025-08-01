@@ -48,7 +48,7 @@ class SimplePDFExtractor:
         return pages_text
 
 
-class DocumentManager:
+class SimpleDocumentManager:
     """Simplified DocumentManager that only does text extraction"""
     
     def __init__(self, *args, **kwargs):
