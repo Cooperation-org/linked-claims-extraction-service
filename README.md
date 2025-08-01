@@ -4,17 +4,7 @@ Web service for extracting structured claims from PDF documents and pushing them
 
 **Live Demo**: [https://extract.linkedtrust.us](https://extract.linkedtrust.us)
 
-## Overview
-
-This service provides a web interface and API for:
-- Uploading PDF documents
-- Extracting verifiable claims using AI
-- Reviewing and editing claims
-- Publishing claims to the LinkedTrust platform
-
-## Installation
-
-### Quick Start (Development)
+## Quick Start
 
 ```bash
 # Clone the repository
@@ -33,16 +23,14 @@ cp .env.example .env
 # Edit .env with your API keys
 
 # Run the service
-python src/app.py
+python run.py
 ```
 
-### Production Deployment
-
-See [pdf_parser_DEPLOYMENT_GUIDE.MD](pdf_parser_DEPLOYMENT_GUIDE.MD) for detailed production deployment instructions.
+The service will start on http://localhost:5050
 
 ## Configuration
 
-Create a `.env` file with:
+Edit `.env` file with your credentials:
 
 ```env
 # LinkedTrust API credentials
@@ -50,43 +38,30 @@ LINKEDTRUST_EMAIL=your-email@example.com
 LINKEDTRUST_PASSWORD=your-password
 LINKEDTRUST_BASE_URL=https://dev.linkedtrust.us
 
-# AI API keys
+# AI API keys (need at least one)
 ANTHROPIC_API_KEY=your-anthropic-key
 # OPENAI_API_KEY=your-openai-key  # Optional
 
 # Flask configuration
-FLASK_SECRET_KEY=your-secret-key
+FLASK_SECRET_KEY=any-random-string-here
 FLASK_PORT=5050
 FLASK_DEBUG=False
 ```
 
-## API Endpoints
+## Usage
 
-- `GET /` - Upload interface
-- `POST /upload` - Upload and process PDF
-- `GET /claims` - View extracted claims
-- `POST /api/claims/<claim_id>/publish` - Publish all claims
-- `POST /api/claims/<claim_id>/publish/<claim_index>` - Publish single claim
+1. Start the service with `python run.py`
+2. Open http://localhost:5050 in your browser
+3. Upload a PDF file
+4. Review the extracted claims
+5. Click "Publish to LinkedTrust" to send claims to the API
 
-## Architecture
+## Troubleshooting
 
-```
-linked-claims-extraction-service/
-├── src/
-│   ├── app.py              # Flask application
-│   ├── templates/          # HTML templates
-│   └── pdf_parser/         # PDF processing logic
-├── requirements.txt        # Python dependencies
-└── gunicorn.conf.py       # Production server config
-```
+- **ImportError**: Make sure you activated the virtual environment
+- **API Key errors**: Check your `.env` file has valid API keys
+- **Connection errors**: Check your LinkedTrust credentials are correct
 
-## Dependencies
+## Production Deployment
 
-- [linked-claims-extractor](https://pypi.org/project/linked-claims-extractor/) - Core extraction library
-- Flask - Web framework
-- PyMuPDF & pdfplumber - PDF processing
-- Gunicorn - Production WSGI server
-
-## License
-
-MIT License - see LICENSE file
+See [pdf_parser_DEPLOYMENT_GUIDE.MD](pdf_parser_DEPLOYMENT_GUIDE.MD) for production deployment.
