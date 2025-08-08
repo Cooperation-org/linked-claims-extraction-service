@@ -1,0 +1,130 @@
+---
+- name: Deploy Linked Claims Extraction Service
+  hosts: webservers
+  become: yes
+  
+  tasks:
+    - name: Ensure Python {{ python_version }} is installed
+      apt:
+        name: 
+          - python{{ python_version }}
+          - python{{ python_version }}-venv
+          - python{{ python_version }}-dev
+          - python3-pip
+        state: present
+
+    - name: Create application user
+      user:
+        name: "{{ app_user }}"
+        shell: /bin/bash
+        home: "/home/{{ app_user }}"
+        create_home: yes
+        state: present
+
+    - name: Ensure .ssh directory exists for app user
+      file:
+        path: "/home/{{ app_user }}/.ssh"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0700'
+
+    - name: Configure SSH to use the correct key for GitHub
+      copy:
+        content: |
+          Host github.com
+            HostName github.com
+            User git
+            IdentityFile ~/.ssh/id_ed25519_hubbot
+            StrictHostKeyChecking no
+        dest: "/home/{{ app_user }}/.ssh/config"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0600'
+
+    - name: Pull latest code
+      git:
+        repo: "{{ git_repo }}"
+        dest: "{{ app_dir }}"
+        version: "{{ git_branch | default('main') }}"
+        accept_hostkey: yes
+        force: yes
+      become_user: "{{ app_user }}"
+
+    - name: Create virtual environment
+      command: python{{ python_version }} -m venv {{ app_dir }}/venv
+      args:
+        creates: "{{ app_dir }}/venv"
+      become_user: "{{ app_user }}"
+
+    - name: Copy .env file
+      template:
+        src: env.j2
+        dest: "{{ app_dir }}/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0600'
+
+    - name: Install Python dependencies
+      pip:
+        requirements: "{{ app_dir }}/requirements.txt"
+        virtualenv: "{{ app_dir }}/venv"
+        virtualenv_python: python{{ python_version }}
+      become_user: "{{ app_user }}"
+
+    - name: Create uploads directory
+      file:
+        path: "{{ app_dir }}/src/uploads"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Create systemd service file
+      template:
+        src: extraction-service.service.j2
+        dest: /etc/systemd/system/extraction-service.service
+        mode: '0644'
+      notify: restart extraction service
+
+    - name: Create Nginx site configuration
+      template:
+        src: nginx-site.conf.j2
+        dest: "/etc/nginx/sites-available/{{ domain_name }}"
+        mode: '0644'
+      notify: reload nginx
+
+    - name: Enable Nginx site
+      file:
+        src: "/etc/nginx/sites-available/{{ domain_name }}"
+        dest: "/etc/nginx/sites-enabled/{{ domain_name }}"
+        state: link
+      notify: reload nginx
+
+    - name: Start and enable extraction service
+      systemd:
+        name: extraction-service
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+    - name: Check service status
+      systemd:
+        name: extraction-service
+      register: service_status
+
+    - name: Display service status
+      debug:
+        msg: "Service is {{ service_status.status.ActiveState }} - Check https://{{ domain_name }}"
+
+  handlers:
+    - name: restart extraction service
+      systemd:
+        name: extraction-service
+        state: restarted
+        daemon_reload: yes
+
+    - name: reload nginx
+      service:
+        name: nginx
+        state: reloaded

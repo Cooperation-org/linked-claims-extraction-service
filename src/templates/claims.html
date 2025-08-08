@@ -232,6 +232,10 @@ function publishSingleClaim(claimId, claimIndex) {
             if (claimInfo && !claimInfo.innerHTML.includes('LinkedTrust ID:')) {
                 claimInfo.innerHTML += `<br><strong>LinkedTrust ID:</strong> <span class="badge bg-success">${data.linkedtrust_id}</span>`;
                 claimInfo.innerHTML += `<br><small class="text-muted">Published: ${new Date().toISOString().slice(0,16).replace('T', ' ')}</small>`;
+                
+                // Add validation link
+                const validationUrl = `https://live.linkedtrust.us/validate?subject=https://live.linkedtrust.us/claims/${data.linkedtrust_id}`;
+                claimInfo.innerHTML += `<br><strong>Validation Link:</strong> <a href="${validationUrl}" target="_blank" class="text-primary small">${validationUrl}</a> <button class="btn btn-sm btn-outline-secondary ms-2" onclick="navigator.clipboard.writeText('${validationUrl}').then(() => { this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 2000); })">Copy</button>`;
             }
             
         } else {

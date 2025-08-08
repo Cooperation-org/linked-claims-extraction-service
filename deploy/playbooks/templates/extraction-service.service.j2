@@ -1,0 +1,24 @@
+[Unit]
+Description=Linked Claims Extraction Service
+After=network.target
+
+[Service]
+Type=simple
+User={{ app_user }}
+Group={{ app_user }}
+WorkingDirectory={{ app_dir }}
+Environment="PATH={{ app_dir }}/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH={{ app_dir }}"
+ExecStart={{ app_dir }}/venv/bin/gunicorn -c {{ app_dir }}/gunicorn.conf.py run:app
+Restart=always
+RestartSec=10
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ app_dir }}/src/uploads
+
+[Install]
+WantedBy=multi-user.target
