@@ -1,95 +1,44 @@
 # Deployment Guide for Linked Claims Extraction Service
 
-This guide explains how to deploy the extraction service to the same server as LinkedTrust.
+This guide explains how to deploy the extraction service.
 
 ## Prerequisites
 
-1. Server already running LinkedTrust (live.linkedtrust.us)
-2. SSH access to the server
+1. Server with deploy user access
+2. SSH access to the server (deploy@139.177.194.35)
 3. Ansible installed locally
-4. Domain: extract.linkedtrust.us pointing to the server
+4. Domain: parse.linkedtrust.us pointing to the server
 
-## Quick Deployment
+## Full Deployment
 
-### 1. Configure Inventory
+### 1. Configure Settings
 
-Edit `inventory/production.yml` with your server details:
-```yaml
-all:
-  children:
-    webservers:
-      hosts:
-        linkedtrust-server:
-          ansible_host: YOUR_SERVER_IP
-          ansible_user: root
-          ansible_ssh_private_key_file: ~/.ssh/your-key
+Edit `group_vars/webservers.yml` with your actual values:
+- `anthropic_api_key`: Your Claude API key
+- `flask_secret_key`: A random secret key
+- GitHub token is already configured in git_repo URL
+
+### 2. Deploy
+
+```bash
+cd ~/parent/linked-claims-extraction-service/deploy
+ansible-playbook playbooks/deploy.yml
 ```
 
-### 2. Set Up Secrets
+## Quick Code Updates
+
+After making code changes, use the quick update playbook:
 
 ```bash
 cd deploy
-
-# Copy vault template
-cp group_vars/vault.yml.example group_vars/vault.yml
-
-# Edit with your secrets
-ansible-vault edit group_vars/vault.yml
+ansible-playbook playbooks/update.yml
 ```
 
-Required secrets:
-- `linkedtrust_email`: Your LinkedTrust account email
-- `linkedtrust_password`: Your LinkedTrust password
-- `anthropic_api_key`: Your Claude API key
-- `flask_secret_key`: Generate a random secret key
+This will:
+1. Pull the latest code from git  
+2. Restart the extraction service
 
-### 3. Deploy
-
-```bash
-# Make deploy script executable
-chmod +x deploy.sh
-
-# Run deployment
-./deploy.sh deploy
-```
-
-## Manual Nginx Configuration
-
-Add this to your server's nginx configuration:
-
-```nginx
-# Add to /etc/nginx/sites-available/extract.linkedtrust.us
-# Then symlink to sites-enabled and reload nginx
-
-server {
-    listen 80;
-    server_name extract.linkedtrust.us;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name extract.linkedtrust.us;
-
-    # Use existing SSL certs from LinkedTrust
-    ssl_certificate /etc/letsencrypt/live/linkedtrust.us/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/linkedtrust.us/privkey.pem;
-
-    client_max_body_size 80M;
-
-    location / {
-        proxy_pass http://127.0.0.1:5050;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 300s;
-    }
-
-    access_log /var/log/nginx/extraction_access.log;
-    error_log /var/log/nginx/extraction_error.log;
-}
-```
+Takes about 10 seconds vs full deployment which takes 2-3 minutes.
 
 ## Service Management
 
