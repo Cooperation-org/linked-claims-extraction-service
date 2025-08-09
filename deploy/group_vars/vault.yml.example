@@ -1,0 +1,30 @@
+---
+# Copy this file to vault.yml and encrypt it with:
+# ansible-vault encrypt group_vars/vault.yml
+#
+# Edit with:
+# ansible-vault edit group_vars/vault.yml
+#
+# Use in playbooks with:
+# ansible-playbook -i inventory/production.yml playbooks/deploy-with-background.yml --ask-vault-pass
+
+# Database password for PostgreSQL
+vault_db_password: "your-secure-database-password-here"
+
+# Flask secret key for session management
+vault_flask_secret_key: "your-very-long-random-secret-key-here"
+
+# Anthropic API key for Claude
+vault_anthropic_api_key: "sk-ant-api..."
+
+# OAuth credentials (optional)
+# vault_google_client_id: "your-google-client-id.apps.googleusercontent.com"
+# vault_google_client_secret: "your-google-client-secret"
+# vault_github_client_id: "your-github-client-id"
+# vault_github_client_secret: "your-github-client-secret"
+
+# GitHub deploy key (if using private repo)
+# vault_github_deploy_key: |
+#   -----BEGIN RSA PRIVATE KEY-----
+#   ...your deploy key here...
+#   -----END RSA PRIVATE KEY-----

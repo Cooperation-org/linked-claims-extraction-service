@@ -1,0 +1,9 @@
+[program:{{ app_name }}]
+command={{ app_dir }}/venv/bin/gunicorn --bind 127.0.0.1:{{ app_port }} --workers 3 --timeout 300 --chdir {{ app_dir }} --pythonpath {{ app_dir }}/src run:app
+directory={{ app_dir }}
+user={{ app_user }}
+autostart=true
+autorestart=true
+redirect_stderr=true
+stdout_logfile=/var/log/supervisor/{{ app_name }}.log
+environment=PATH="{{ app_dir }}/venv/bin:%(ENV_PATH)s"

@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validate Claim - Linked Claims</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+        
+        .original-claim {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            margin: 2rem;
+            padding: 1.5rem;
+            border-radius: 8px;
+        }
+        
+        .claim-label {
+            font-size: 0.875rem;
+            color: #666;
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .claim-value {
+            font-size: 1.1rem;
+            color: #333;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+        
+        .claim-metadata {
+            display: flex;
+            gap: 2rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        .metadata-item {
+            font-size: 0.875rem;
+            color: #666;
+        }
+        
+        .validation-form {
+            padding: 2rem;
+        }
+        
+        .form-intro {
+            background: #e3f2fd;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            color: #1976d2;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .question-style {
+            font-size: 1.1rem;
+            color: #333;
+            margin-bottom: 1rem;
+        }
+        
+        .option-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .option-card {
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .option-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        
+        .option-card.selected {
+            border-color: #667eea;
+            background: #f3f4ff;
+        }
+        
+        .option-card .icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .option-card .title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+        
+        .option-card .description {
+            font-size: 0.875rem;
+            color: #666;
+        }
+        
+        textarea, input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        textarea:focus, input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        .help-text {
+            font-size: 0.875rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+        
+        .how-known-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .radio-option {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .radio-option:hover {
+            border-color: #667eea;
+        }
+        
+        .radio-option input[type="radio"] {
+            margin-right: 0.5rem;
+        }
+        
+        .radio-option.selected {
+            border-color: #667eea;
+            background: #f3f4ff;
+        }
+        
+        .conditional-section {
+            display: none;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        
+        .conditional-section.active {
+            display: block;
+        }
+        
+        .auth-notice {
+            background: #fff3cd;
+            color: #856404;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        
+        .btn {
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+            margin-right: 1rem;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 2rem;
+            text-align: center;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 2rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Validate Impact Claim</h1>
+            <p>Help verify the authenticity and impact of this claim</p>
+        </div>
+
+        <!-- Original Claim Display -->
+        <div class="original-claim">
+            <h2 style="margin-bottom: 1rem; color: #667eea;">Original Claim</h2>
+            
+            <div class="claim-label">What was done:</div>
+            <div class="claim-value" id="claim-statement">{{ claim.statement }}</div>
+            
+            {% if claim.subject %}
+            <div class="claim-label">Who did it:</div>
+            <div class="claim-value" id="claim-subject">{{ claim.subject }}</div>
+            {% endif %}
+            
+            {% if claim.object %}
+            <div class="claim-label">Who/What benefited:</div>
+            <div class="claim-value" id="claim-object">{{ claim.object }}</div>
+            {% endif %}
+            
+            {% if claim.amt %}
+            <div class="claim-label">Impact Amount:</div>
+            <div class="claim-value">{{ claim.amt }} {{ claim.unit }}</div>
+            {% endif %}
+            
+            <div class="claim-metadata">
+                <div class="metadata-item">
+                    <strong>Source:</strong> <a href="{{ claim.sourceURI }}" target="_blank">View Document</a>
+                </div>
+                <div class="metadata-item">
+                    <strong>Date:</strong> {{ claim.effectiveDate }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Validation Form -->
+        <div class="validation-form" id="validation-form">
+            {% if not current_user.is_authenticated %}
+            <div class="auth-notice">
+                ⚠️ Please <a href="/auth/login?next={{ request.url }}">login</a> to validate this claim
+            </div>
+            {% else %}
+            
+            <form id="validate-form">
+                <input type="hidden" name="claim_url" value="{{ claim.url }}">
+                
+                <!-- Step 1: Relationship to claim -->
+                <div class="form-group">
+                    <div class="question-style">What is your relationship to this claim?</div>
+                    
+                    <div class="option-cards">
+                        <div class="option-card" onclick="selectValidationType('validated')">
+                            <div class="icon">✅</div>
+                            <div class="title">I can verify this</div>
+                            <div class="description">I witnessed or have knowledge of this</div>
+                        </div>
+                        
+                        <div class="option-card" onclick="selectValidationType('impact')">
+                            <div class="icon">🎯</div>
+                            <div class="title">This helped me/someone</div>
+                            <div class="description">I or someone I know benefited</div>
+                        </div>
+                        
+                        <div class="option-card" onclick="selectValidationType('disputed')">
+                            <div class="icon">⚠️</div>
+                            <div class="title">This is incorrect</div>
+                            <div class="description">I have contrary information</div>
+                        </div>
+                    </div>
+                    <input type="hidden" name="validation_type" id="validation_type" required>
+                </div>
+
+                <!-- Step 2: How do you know? -->
+                <div class="form-group">
+                    <label>How do you know about this?</label>
+                    <div class="how-known-group">
+                        <label class="radio-option">
+                            <input type="radio" name="how_known" value="FIRST_HAND" required>
+                            <span>First-hand knowledge (I was there/involved)</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="how_known" value="SECOND_HAND" required>
+                            <span>Second-hand (I heard from someone involved)</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="how_known" value="FROM_SOURCE" required>
+                            <span>From a document/source</span>
+                        </label>
+                    </div>
+                    
+                    <!-- Show source input if FROM_SOURCE selected -->
+                    <div class="conditional-section" id="source-section">
+                        <label for="external_source">Source URL or Reference:</label>
+                        <input type="text" name="external_source" id="external_source" 
+                               placeholder="https://... or description of source">
+                        <div class="help-text">Provide the URL or describe your source</div>
+                    </div>
+                </div>
+
+                <!-- Impact-specific fields -->
+                <div class="conditional-section" id="impact-section">
+                    <div class="form-group">
+                        <label>Who benefited from this?</label>
+                        <div class="how-known-group">
+                            <label class="radio-option">
+                                <input type="radio" name="beneficiary_type" value="self">
+                                <span>Me personally</span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="beneficiary_type" value="other">
+                                <span>Someone else</span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="beneficiary_type" value="community">
+                                <span>My community</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="conditional-section" id="other-beneficiary-section">
+                        <label for="beneficiary_id">Who benefited? (name or identifier):</label>
+                        <input type="text" name="beneficiary_id" id="beneficiary_id" 
+                               placeholder="e.g., John Smith, Village School, etc.">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="impact_amount">How much impact? (optional)</label>
+                        <div style="display: flex; gap: 1rem;">
+                            <input type="number" name="impact_amount" id="impact_amount" 
+                                   placeholder="Amount" style="flex: 1;">
+                            <input type="text" name="impact_unit" id="impact_unit" 
+                                   placeholder="Unit (e.g., people, liters, dollars)" style="flex: 2;">
+                        </div>
+                        <div class="help-text">Quantify the impact if possible</div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Your statement -->
+                <div class="form-group">
+                    <label for="statement">Please describe what you know about this claim:</label>
+                    <textarea name="statement" id="statement" required 
+                              placeholder="Share your experience or knowledge about this claim. Be specific about dates, locations, and details you witnessed or know about."></textarea>
+                    <div class="help-text">Your testimony helps establish the credibility of this claim</div>
+                </div>
+
+                <!-- Optional: Add claims about yourself -->
+                <div class="form-group">
+                    <label>Add context about yourself (optional):</label>
+                    <div class="help-text">This helps establish your credibility as a validator</div>
+                    
+                    <div style="margin-top: 1rem;">
+                        <input type="text" name="validator_context" 
+                               placeholder="e.g., I am a resident of [location], I work in [field], etc.">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="window.history.back()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="submit-btn">Submit Validation</button>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+
+        <!-- Success/Error Messages -->
+        <div class="success-message" id="success-message" style="display: none;">
+            <h3>✅ Thank you for your validation!</h3>
+            <p>Your validation has been recorded on the LinkedTrust network.</p>
+            <p style="margin-top: 1rem;">
+                <a href="{{ claim.url }}" target="_blank">View claim on LinkedTrust</a>
+            </p>
+        </div>
+
+        <div class="error-message" id="error-message" style="display: none;">
+            <h3>❌ Validation Failed</h3>
+            <p id="error-text">An error occurred while submitting your validation.</p>
+        </div>
+    </div>
+
+    <script>
+        let selectedValidationType = null;
+
+        function selectValidationType(type) {
+            selectedValidationType = type;
+            document.getElementById('validation_type').value = type;
+            
+            // Update UI
+            document.querySelectorAll('.option-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+            
+            // Show/hide impact section
+            const impactSection = document.getElementById('impact-section');
+            if (type === 'impact') {
+                impactSection.classList.add('active');
+            } else {
+                impactSection.classList.remove('active');
+            }
+        }
+
+        // Handle how_known radio changes
+        document.querySelectorAll('input[name="how_known"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const sourceSection = document.getElementById('source-section');
+                if (this.value === 'FROM_SOURCE') {
+                    sourceSection.classList.add('active');
+                } else {
+                    sourceSection.classList.remove('active');
+                }
+                
+                // Update radio option styling
+                document.querySelectorAll('.radio-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                this.closest('.radio-option').classList.add('selected');
+            });
+        });
+
+        // Handle beneficiary type changes
+        document.querySelectorAll('input[name="beneficiary_type"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const otherSection = document.getElementById('other-beneficiary-section');
+                if (this.value === 'other') {
+                    otherSection.classList.add('active');
+                } else {
+                    otherSection.classList.remove('active');
+                }
+            });
+        });
+
+        // Form submission
+        document.getElementById('validate-form')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            
+            const formData = new FormData(this);
+            
+            // Build validation claim
+            const validationData = {
+                claim_url: formData.get('claim_url'),
+                validation_type: formData.get('validation_type'),
+                how_known: formData.get('how_known'),
+                statement: formData.get('statement'),
+                external_source: formData.get('external_source'),
+                beneficiary_type: formData.get('beneficiary_type'),
+                beneficiary_id: formData.get('beneficiary_id'),
+                impact_amount: formData.get('impact_amount'),
+                impact_unit: formData.get('impact_unit'),
+                validator_context: formData.get('validator_context')
+            };
+            
+            try {
+                const response = await fetch('/api/validate-claim', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(validationData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    document.getElementById('validation-form').style.display = 'none';
+                    document.getElementById('success-message').style.display = 'block';
+                } else {
+                    throw new Error(result.error || 'Validation failed');
+                }
+            } catch (error) {
+                document.getElementById('error-text').textContent = error.message;
+                document.getElementById('error-message').style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Validation';
+            }
+        });
+    </script>
+</body>
+</html>

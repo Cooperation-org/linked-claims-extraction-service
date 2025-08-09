@@ -1,0 +1,116 @@
+---
+- name: Setup SSL with Let's Encrypt for parse.linkedtrust.us
+  hosts: webservers
+  become: yes
+  vars_files:
+    - ../group_vars/webservers.yml
+  
+  tasks:
+    - name: Install certbot and nginx plugin
+      apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+        update_cache: yes
+
+    - name: Check if certificate already exists
+      stat:
+        path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
+      register: cert_exists
+
+    - name: Create webroot directory for ACME challenge
+      file:
+        path: /var/www/letsencrypt
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
+    - name: Deploy temporary HTTP configuration for ACME challenge
+      template:
+        src: nginx-site-http.conf.j2
+        dest: "/etc/nginx/sites-available/{{ domain_name }}"
+        mode: '0644'
+      when: not cert_exists.stat.exists
+
+    - name: Enable temporary site
+      file:
+        src: "/etc/nginx/sites-available/{{ domain_name }}"
+        dest: "/etc/nginx/sites-enabled/{{ domain_name }}"
+        state: link
+      when: not cert_exists.stat.exists
+
+    - name: Test nginx configuration
+      command: nginx -t
+      changed_when: false
+
+    - name: Reload nginx for ACME challenge
+      service:
+        name: nginx
+        state: reloaded
+      when: not cert_exists.stat.exists
+
+    - name: Obtain SSL certificate using webroot
+      command: >
+        certbot certonly
+        --webroot
+        --webroot-path /var/www/letsencrypt
+        --non-interactive
+        --agree-tos
+        --email {{ admin_email }}
+        -d {{ domain_name }}
+        --keep-until-expiring
+      when: not cert_exists.stat.exists
+      register: certbot_result
+
+    - name: Deploy HTTPS nginx configuration
+      template:
+        src: nginx-site-https.conf.j2
+        dest: "/etc/nginx/sites-available/{{ domain_name }}"
+        mode: '0644'
+
+    - name: Enable site (ensure link exists)
+      file:
+        src: "/etc/nginx/sites-available/{{ domain_name }}"
+        dest: "/etc/nginx/sites-enabled/{{ domain_name }}"
+        state: link
+
+    - name: Test nginx configuration after SSL setup
+      command: nginx -t
+      changed_when: false
+      register: nginx_test
+
+    - name: Reload nginx with SSL configuration
+      service:
+        name: nginx
+        state: reloaded
+      when: nginx_test.rc == 0
+
+    - name: Setup auto-renewal cron job
+      cron:
+        name: "Let's Encrypt renewal for {{ domain_name }}"
+        job: "certbot renew --quiet --webroot --webroot-path /var/www/letsencrypt --post-hook 'systemctl reload nginx'"
+        hour: "2"
+        minute: "30"
+        weekday: "1"
+        state: present
+
+    - name: Test certificate renewal
+      command: certbot renew --dry-run
+      register: renewal_test
+      changed_when: false
+      failed_when: false
+
+    - name: Display SSL certificate status
+      debug:
+        msg: |
+          ✅ SSL Setup Complete for {{ domain_name }}
+          
+          Certificate Status:
+          - Certificate exists: {{ cert_exists.stat.exists or certbot_result is defined }}
+          - Certificate path: /etc/letsencrypt/live/{{ domain_name }}/
+          - Auto-renewal: Configured for Monday at 2:30 AM
+          - Renewal test: {{ 'Passed' if renewal_test.rc == 0 else 'Check manually' }}
+          
+          Access your site at: https://{{ domain_name }}

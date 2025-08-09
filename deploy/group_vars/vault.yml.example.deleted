@@ -1,0 +1,20 @@
+---
+# Ansible vault encrypted secrets
+# Use: ansible-vault edit group_vars/vault.yml
+
+# LinkedTrust API credentials
+linkedtrust_email: "your-email@example.com"
+linkedtrust_password: "your-password"
+
+# AI API keys
+anthropic_api_key: "sk-ant-api03-..."
+# openai_api_key: "sk-..."  # Optional
+
+# Flask configuration
+flask_secret_key: "generate-a-secure-random-key-here"
+
+# AWS S3 (if using for file storage)
+# aws_access_key_id: ""
+# aws_secret_access_key: ""
+# aws_s3_bucket: ""
+# aws_region: ""

@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ document.original_filename }} - Document Status</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+        }
+        .header {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 1rem 2rem;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: #333;
+        }
+        .breadcrumb {
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+            color: #666;
+        }
+        .breadcrumb a {
+            color: #2196F3;
+            text-decoration: none;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        .document-info {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .info-label {
+            font-size: 0.875rem;
+            color: #666;
+            margin-bottom: 0.25rem;
+        }
+        .info-value {
+            font-size: 1rem;
+            color: #333;
+            word-break: break-word;
+        }
+        .editable {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .edit-btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .edit-form {
+            display: none;
+            margin-top: 0.5rem;
+        }
+        .edit-form.active {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .edit-form input {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: inline-block;
+        }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-processing { background: #cce5ff; color: #004085; }
+        .status-completed { background: #d4edda; color: #155724; }
+        .status-failed { background: #f8d7da; color: #721c24; }
+        .actions {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 1rem;
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .btn-primary { background: #4CAF50; color: white; }
+        .btn-secondary { background: #f0f0f0; color: #333; }
+        .btn-danger { background: #f44336; color: white; }
+        .claims-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #333;
+        }
+        .claims-stats {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.875rem;
+        }
+        .stat {
+            padding: 0.25rem 0.75rem;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+        .claims-list {
+            margin-top: 1rem;
+        }
+        .claim-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .claim-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.5rem;
+        }
+        .claim-info {
+            flex: 1;
+        }
+        .claim-subject {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+        .claim-statement {
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+        .claim-metadata {
+            font-size: 0.75rem;
+            color: #999;
+        }
+        .claim-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .claim-status {
+            padding: 0.2rem 0.5rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            margin-right: 0.5rem;
+        }
+        .status-draft { background: #e3f2fd; color: #1976d2; }
+        .status-approved { background: #fff3cd; color: #856404; }
+        .status-published { background: #d4edda; color: #155724; }
+        .status-rejected { background: #ffebee; color: #c62828; }
+        .empty-state {
+            padding: 2rem;
+            text-align: center;
+            color: #666;
+        }
+        .progress-bar {
+            margin-top: 1rem;
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Document Status</h1>
+        <div class="breadcrumb">
+            <a href="/dashboard">Dashboard</a> / {{ document.original_filename }}
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Document Information -->
+        <div class="document-info">
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Filename</span>
+                    <span class="info-value">{{ document.original_filename }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Status</span>
+                    <span class="info-value">
+                        <span class="status status-{{ document.status }}">{{ document.status }}</span>
+                        {% if document.error_message %}
+                        <div style="color: red; margin-top: 0.5rem; font-size: 0.875rem;">
+                            Error: {{ document.error_message }}
+                        </div>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Public URL</span>
+                    <div class="info-value">
+                        <div class="editable">
+                            <a href="{{ document.public_url }}" target="_blank">{{ document.public_url }}</a>
+                            <button class="edit-btn" onclick="toggleEdit('public_url')">Edit</button>
+                        </div>
+                        <div class="edit-form" id="edit-public_url">
+                            <input type="url" id="input-public_url" value="{{ document.public_url }}">
+                            <button class="btn btn-primary" onclick="saveEdit('public_url')">Save</button>
+                            <button class="btn btn-secondary" onclick="toggleEdit('public_url')">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Effective Date</span>
+                    <div class="info-value">
+                        <div class="editable">
+                            <span>{{ document.effective_date }}</span>
+                            <button class="edit-btn" onclick="toggleEdit('effective_date')">Edit</button>
+                        </div>
+                        <div class="edit-form" id="edit-effective_date">
+                            <input type="date" id="input-effective_date" value="{{ document.effective_date }}">
+                            <button class="btn btn-primary" onclick="saveEdit('effective_date')">Save</button>
+                            <button class="btn btn-secondary" onclick="toggleEdit('effective_date')">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Uploaded</span>
+                    <span class="info-value">{{ document.upload_time.strftime('%Y-%m-%d %H:%M') }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Claims Found</span>
+                    <span class="info-value">{{ claims|length }}</span>
+                </div>
+            </div>
+
+            {% if document.status == 'processing' %}
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 50%;"></div>
+            </div>
+            {% endif %}
+
+            <div class="actions">
+                {% if document.status in ['completed', 'failed'] %}
+                <button class="btn btn-secondary" onclick="reprocessDocument()">🔄 Reprocess</button>
+                {% endif %}
+                {% if claims and claims|selectattr('status', 'equalto', 'approved')|list %}
+                <button class="btn btn-primary" onclick="publishClaims()">📤 Publish Approved Claims</button>
+                {% endif %}
+                <a href="/dashboard" class="btn btn-secondary">← Back to Dashboard</a>
+            </div>
+        </div>
+
+        <!-- Claims Section -->
+        <div class="claims-section">
+            <div class="section-header">
+                <h2 class="section-title">Extracted Claims</h2>
+                <div class="claims-stats">
+                    <span class="stat">Total: {{ claims|length }}</span>
+                    <span class="stat">Draft: {{ claims|selectattr('status', 'equalto', 'draft')|list|length }}</span>
+                    <span class="stat">Approved: {{ claims|selectattr('status', 'equalto', 'approved')|list|length }}</span>
+                    <span class="stat">Published: {{ claims|selectattr('status', 'equalto', 'published')|list|length }}</span>
+                </div>
+            </div>
+
+            {% if claims %}
+            <div class="claims-list">
+                {% for claim in claims %}
+                <div class="claim-card">
+                    <div class="claim-header">
+                        <div class="claim-info">
+                            <div class="claim-subject">
+                                <strong>Subject:</strong> {{ claim.subject[:100] }}{% if claim.subject|length > 100 %}...{% endif %}
+                            </div>
+                            <div class="claim-statement">
+                                <strong>Statement:</strong> {{ claim.statement }}
+                            </div>
+                            {% if claim.object %}
+                            <div class="claim-statement">
+                                <strong>Object:</strong> {{ claim.object[:100] }}{% if claim.object|length > 100 %}...{% endif %}
+                            </div>
+                            {% endif %}
+                            <div class="claim-metadata">
+                                Page {{ claim.page_number }} | 
+                                <span class="claim-status status-{{ claim.status }}">{{ claim.status }}</span>
+                                {% if claim.linkedtrust_claim_url %}
+                                | <a href="{{ claim.linkedtrust_claim_url }}" target="_blank">View on LinkedTrust</a>
+                                | <button class="btn btn-secondary" onclick="showValidationUrl('{{ claim.linkedtrust_claim_url }}')">📧 Get Validation Link</button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="claim-actions">
+                            {% if claim.status == 'draft' %}
+                            <button class="btn btn-primary" onclick="approveClaim({{ claim.id }})">✓</button>
+                            <button class="btn btn-danger" onclick="rejectClaim({{ claim.id }})">✗</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                {% if document.status == 'pending' %}
+                <p>Document is queued for processing...</p>
+                {% elif document.status == 'processing' %}
+                <p>Extracting claims from document...</p>
+                <p>This page will refresh automatically.</p>
+                {% elif document.status == 'failed' %}
+                <p>Failed to extract claims from this document.</p>
+                <button class="btn btn-primary" onclick="reprocessDocument()">Try Again</button>
+                {% else %}
+                <p>No claims found in this document.</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        const documentId = '{{ document.id }}';
+
+        // Auto-refresh if processing
+        {% if document.status in ['pending', 'processing'] %}
+        setTimeout(() => {
+            location.reload();
+        }, 5000);
+        {% endif %}
+
+        function toggleEdit(field) {
+            const form = document.getElementById(`edit-${field}`);
+            form.classList.toggle('active');
+        }
+
+        async function saveEdit(field) {
+            const value = document.getElementById(`input-${field}`).value;
+            
+            try {
+                const response = await fetch(`/document/${documentId}/edit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ [field]: value })
+                });
+                
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'Failed to update');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function reprocessDocument() {
+            if (!confirm('Are you sure you want to reprocess this document? This will delete existing draft claims.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/document/${documentId}/reprocess`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'Failed to reprocess');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function approveClaim(claimId) {
+            try {
+                const response = await fetch(`/api/claims/${claimId}/approve`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'Failed to approve claim');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function rejectClaim(claimId) {
+            try {
+                const response = await fetch(`/api/claims/${claimId}/reject`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'Failed to reject claim');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function publishClaims() {
+            if (!confirm('Publish all approved claims to LinkedTrust?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/document/${documentId}/publish`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    alert(data.message);
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    alert(data.error || 'Failed to publish claims');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        function showValidationUrl(claimUrl) {
+            const encodedUrl = encodeURIComponent(claimUrl);
+            const validationUrl = `${window.location.origin}/validate/${encodedUrl}`;
+            
+            // Create modal or alert with copyable URL
+            const message = `Share this validation link with witnesses or beneficiaries:\n\n${validationUrl}\n\nThey can use this link to validate or confirm the impact of this claim.`;
+            
+            // Try to copy to clipboard
+            navigator.clipboard.writeText(validationUrl).then(() => {
+                alert(message + '\n\n✅ Link copied to clipboard!');
+            }).catch(() => {
+                // Fallback if clipboard API fails
+                prompt('Copy this validation link:', validationUrl);
+            });
+        }
+    </script>
+</body>
+</html>

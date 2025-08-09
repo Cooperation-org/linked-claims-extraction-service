@@ -1,0 +1,19 @@
+---
+- name: Quick update extraction service code
+  hosts: webservers
+  become: yes
+  vars_files:
+    - ../group_vars/webservers.yml
+  
+  tasks:
+    - name: Pull latest code
+      git:
+        repo: "{{ git_repo }}"
+        dest: "{{ app_dir }}"
+        version: "{{ git_branch | default('main') }}"
+      become_user: "{{ app_user }}"
+      
+    - name: Restart extraction service
+      systemd:
+        name: extraction-service
+        state: restarted

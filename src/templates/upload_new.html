@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload PDF - Linked Claims Extraction</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+        }
+        .header {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 1rem 2rem;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        .upload-form {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+        .required {
+            color: #e74c3c;
+        }
+        input[type="text"],
+        input[type="url"],
+        input[type="date"],
+        input[type="file"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        .help-text {
+            margin-top: 0.25rem;
+            font-size: 0.875rem;
+            color: #666;
+        }
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+        .file-input-label {
+            display: block;
+            padding: 1rem;
+            border: 2px dashed #ddd;
+            border-radius: 4px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .file-input-label:hover {
+            border-color: #4CAF50;
+            background: #f9f9f9;
+        }
+        .file-selected {
+            border-color: #4CAF50;
+            background: #e8f5e9;
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+            width: 100%;
+        }
+        .btn-primary:hover {
+            background: #45a049;
+        }
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+            margin-right: 1rem;
+        }
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+        .form-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 2rem;
+        }
+        .processing {
+            display: none;
+            text-align: center;
+            padding: 1rem;
+            color: #666;
+        }
+        .processing.active {
+            display: block;
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Upload PDF Document</h1>
+    </div>
+
+    <div class="container">
+        <div class="upload-form">
+            <div id="error-message" class="error-message" style="display: none;"></div>
+            <div id="success-message" class="success-message" style="display: none;"></div>
+
+            <form id="upload-form" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="file">
+                        PDF File <span class="required">*</span>
+                    </label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="file" name="file" accept=".pdf" required>
+                        <label for="file" class="file-input-label" id="file-label">
+                            📄 Click to select PDF file or drag and drop
+                        </label>
+                    </div>
+                    <div class="help-text">Maximum file size: 80MB</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="public_url">
+                        Public URL <span class="required">*</span>
+                    </label>
+                    <input type="url" id="public_url" name="public_url" 
+                           placeholder="https://example.com/document.pdf" required>
+                    <div class="help-text">
+                        The public URL where this document can be accessed. This will be used as the source URI for all extracted claims.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="effective_date">
+                        Effective Date <span class="required">*</span>
+                    </label>
+                    <input type="date" id="effective_date" name="effective_date" required>
+                    <div class="help-text">
+                        The date when the information in this document becomes or became effective.
+                    </div>
+                </div>
+
+                <div class="processing" id="processing">
+                    <span class="spinner"></span>
+                    Uploading and processing your document...
+                </div>
+
+                <div class="form-actions">
+                    <a href="/dashboard" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary" id="submit-btn">
+                        Upload and Extract Claims
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // File input handling
+        const fileInput = document.getElementById('file');
+        const fileLabel = document.getElementById('file-label');
+        
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                fileLabel.textContent = `📄 Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+                fileLabel.classList.add('file-selected');
+            } else {
+                fileLabel.textContent = '📄 Click to select PDF file or drag and drop';
+                fileLabel.classList.remove('file-selected');
+            }
+        });
+
+        // Drag and drop
+        fileLabel.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.style.borderColor = '#4CAF50';
+        });
+
+        fileLabel.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.style.borderColor = '#ddd';
+        });
+
+        fileLabel.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.style.borderColor = '#ddd';
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                fileInput.files = files;
+                const event = new Event('change', { bubbles: true });
+                fileInput.dispatchEvent(event);
+            }
+        });
+
+        // Form submission
+        document.getElementById('upload-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const submitBtn = document.getElementById('submit-btn');
+            const processing = document.getElementById('processing');
+            const errorMsg = document.getElementById('error-message');
+            const successMsg = document.getElementById('success-message');
+            
+            // Hide messages
+            errorMsg.style.display = 'none';
+            successMsg.style.display = 'none';
+            
+            // Show processing
+            submitBtn.disabled = true;
+            processing.classList.add('active');
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    successMsg.textContent = data.message || 'Upload successful! Redirecting...';
+                    successMsg.style.display = 'block';
+                    
+                    // Redirect to document status page
+                    setTimeout(() => {
+                        window.location.href = data.redirect || '/dashboard';
+                    }, 1500);
+                } else {
+                    throw new Error(data.error || 'Upload failed');
+                }
+            } catch (error) {
+                errorMsg.textContent = error.message;
+                errorMsg.style.display = 'block';
+                submitBtn.disabled = false;
+                processing.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>

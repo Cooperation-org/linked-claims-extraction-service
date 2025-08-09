@@ -1,0 +1,15 @@
+[program:{{ app_name }}-celery-beat]
+command={{ app_dir }}/venv/bin/celery -A celery_app.celery_app beat --loglevel=info
+directory={{ app_dir }}/src
+user={{ app_user }}
+numprocs=1
+autostart=true
+autorestart=true
+startsecs=10
+redirect_stderr=true
+stdout_logfile=/var/log/supervisor/{{ app_name }}-celery-beat.log
+stderr_logfile=/var/log/supervisor/{{ app_name }}-celery-beat_error.log
+environment=PATH="{{ app_dir }}/venv/bin:%(ENV_PATH)s",
+            DATABASE_URL="postgresql://{{ db_user | default('linkedclaims') }}:{{ db_password }}@localhost/{{ db_name | default('linkedclaims_extraction') }}",
+            REDIS_HOST="{{ redis_host | default('localhost') }}",
+            REDIS_PORT="{{ redis_port | default('6379') }}"

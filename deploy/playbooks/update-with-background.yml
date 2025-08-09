@@ -1,0 +1,96 @@
+---
+- name: Update Linked Claims Extraction Service
+  hosts: webservers
+  become: yes
+  vars_files:
+    - ../group_vars/webservers.yml
+    - ../group_vars/vault.yml
+  
+  tasks:
+    - name: Pull latest code
+      git:
+        repo: "{{ git_repo }}"
+        dest: "{{ app_dir }}"
+        version: "{{ git_branch | default('main') }}"
+        force: yes
+      become_user: "{{ app_user }}"
+      register: git_result
+
+    - name: Update Python dependencies if requirements changed
+      pip:
+        requirements: "{{ app_dir }}/requirements.txt"
+        virtualenv: "{{ app_dir }}/venv"
+        virtualenv_python: python3
+      become_user: "{{ app_user }}"
+      when: git_result.changed
+
+    - name: Run database migrations
+      shell: |
+        cd {{ app_dir }}
+        source venv/bin/activate
+        export FLASK_APP=src/app_new.py
+        flask db migrate -m "Auto migration" || true
+        flask db upgrade
+      become_user: "{{ app_user }}"
+      environment:
+        DATABASE_URL: "postgresql://{{ db_user | default('linkedclaims') }}:{{ db_password }}@localhost/{{ db_name | default('linkedclaims_extraction') }}"
+      when: git_result.changed
+
+    - name: Update .env file
+      template:
+        src: env-with-db.j2
+        dest: "{{ app_dir }}/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0600'
+      register: env_result
+
+    - name: Update supervisor configs if changed
+      template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: root
+        group: root
+        mode: '0644'
+      loop:
+        - { src: 'supervisor-flask.conf.j2', dest: '/etc/supervisor/conf.d/{{ app_name }}.conf' }
+        - { src: 'supervisor-celery.conf.j2', dest: '/etc/supervisor/conf.d/{{ app_name }}-celery.conf' }
+      register: supervisor_result
+
+    - name: Reread supervisor configs if changed
+      command: supervisorctl reread
+      when: supervisor_result.changed
+
+    - name: Update supervisor if configs changed
+      command: supervisorctl update
+      when: supervisor_result.changed
+
+    - name: Restart Flask app if code or env changed
+      supervisorctl:
+        name: "{{ app_name }}"
+        state: restarted
+      when: git_result.changed or env_result.changed
+
+    - name: Restart Celery worker if code changed
+      supervisorctl:
+        name: "{{ app_name }}-celery"
+        state: restarted
+      when: git_result.changed
+
+    - name: Check service status
+      command: supervisorctl status
+      register: service_status
+      changed_when: false
+
+    - name: Display service status
+      debug:
+        msg: |
+          Services updated successfully!
+          Status: {{ service_status.stdout }}
+          
+          Changes:
+          - Code updated: {{ git_result.changed }}
+          - Environment updated: {{ env_result.changed }}
+          - Supervisor configs updated: {{ supervisor_result.changed }}
+          
+          Access the service at: https://{{ domain_name }}

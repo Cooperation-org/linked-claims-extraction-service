@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Linked Claims Extraction</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+        }
+        .header {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: #333;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        .actions {
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 1rem;
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #45a049;
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        .documents-table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background: #f8f8f8;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        tr:hover {
+            background: #f9f9f9;
+        }
+        .status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-processing { background: #cce5ff; color: #004085; }
+        .status-completed { background: #d4edda; color: #155724; }
+        .status-failed { background: #f8d7da; color: #721c24; }
+        .empty-state {
+            padding: 3rem;
+            text-align: center;
+            color: #666;
+        }
+        .document-link {
+            color: #2196F3;
+            text-decoration: none;
+        }
+        .document-link:hover {
+            text-decoration: underline;
+        }
+        .claims-count {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.875rem;
+        }
+        .count-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Linked Claims Extraction Service</h1>
+        <div class="user-info">
+            <span>{{ user.email or user.name or 'User' }}</span>
+            <a href="/auth/logout" class="btn btn-secondary">Logout</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="actions">
+            <a href="/upload" class="btn btn-primary">📄 Upload New PDF</a>
+            <a href="/api/published-claims" class="btn btn-secondary">🔗 View Published Claims</a>
+        </div>
+
+        <div class="documents-table">
+            {% if documents %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Document</th>
+                        <th>Public URL</th>
+                        <th>Effective Date</th>
+                        <th>Status</th>
+                        <th>Claims</th>
+                        <th>Uploaded</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                    <tr>
+                        <td>
+                            <a href="/document/{{ doc.id }}" class="document-link">
+                                {{ doc.original_filename }}
+                            </a>
+                        </td>
+                        <td>
+                            <a href="{{ doc.public_url }}" target="_blank" class="document-link">
+                                {{ doc.public_url[:50] }}{% if doc.public_url|length > 50 %}...{% endif %}
+                            </a>
+                        </td>
+                        <td>{{ doc.effective_date }}</td>
+                        <td>
+                            <span class="status status-{{ doc.status }}">{{ doc.status }}</span>
+                        </td>
+                        <td>
+                            <div class="claims-count">
+                                <span class="count-badge">{{ doc.draft_claims.count() }} total</span>
+                            </div>
+                        </td>
+                        <td>{{ doc.upload_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            <a href="/document/{{ doc.id }}" class="document-link">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>No documents uploaded yet.</p>
+                <a href="/upload" class="btn btn-primary">Upload Your First PDF</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

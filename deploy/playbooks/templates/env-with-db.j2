@@ -1,0 +1,49 @@
+# Flask Configuration
+FLASK_APP=app_new.py
+FLASK_ENV=production
+FLASK_SECRET_KEY={{ flask_secret_key }}
+FLASK_PORT={{ app_port }}
+FLASK_DEBUG=False
+
+# Database Configuration
+DATABASE_URL=postgresql://{{ db_user | default('linkedclaims') }}:{{ db_password }}@{{ db_host | default('localhost') }}/{{ db_name | default('linkedclaims_extraction') }}
+DB_USER={{ db_user | default('linkedclaims') }}
+DB_PASSWORD={{ db_password }}
+DB_HOST={{ db_host | default('localhost') }}
+DB_PORT={{ db_port | default('5432') }}
+DB_NAME={{ db_name | default('linkedclaims_extraction') }}
+
+# Redis Configuration
+REDIS_HOST={{ redis_host | default('localhost') }}
+REDIS_PORT={{ redis_port | default('6379') }}
+REDIS_DB={{ redis_db | default('0') }}
+{% if redis_password is defined %}
+REDIS_PASSWORD={{ redis_password }}
+{% endif %}
+
+# LinkedTrust API Configuration
+LINKEDTRUST_BASE_URL={{ linkedtrust_base_url }}
+{% if linkedtrust_email is defined %}
+LINKEDTRUST_EMAIL={{ linkedtrust_email }}
+LINKEDTRUST_PASSWORD={{ linkedtrust_password }}
+{% endif %}
+
+# OAuth Configuration (for user authentication)
+{% if google_client_id is defined %}
+GOOGLE_CLIENT_ID={{ google_client_id }}
+GOOGLE_CLIENT_SECRET={{ google_client_secret }}
+{% endif %}
+{% if github_client_id is defined %}
+GITHUB_CLIENT_ID={{ github_client_id }}
+GITHUB_CLIENT_SECRET={{ github_client_secret }}
+{% endif %}
+
+# AI API Configuration
+ANTHROPIC_API_KEY={{ anthropic_api_key }}
+{% if openai_api_key is defined %}
+OPENAI_API_KEY={{ openai_api_key }}
+{% endif %}
+
+# Application URLs
+APP_URL={{ app_url }}
+DOMAIN_NAME={{ domain_name }}

@@ -1,0 +1,63 @@
+---
+- name: Renew Let's Encrypt SSL Certificate
+  hosts: webservers
+  become: yes
+  vars_files:
+    - ../group_vars/webservers.yml
+  
+  tasks:
+    - name: Check certificate expiration
+      command: certbot certificates --cert-name {{ domain_name }}
+      register: cert_status
+      changed_when: false
+      failed_when: false
+
+    - name: Display certificate status
+      debug:
+        msg: "{{ cert_status.stdout }}"
+
+    - name: Test renewal (dry run)
+      command: certbot renew --dry-run --cert-name {{ domain_name }}
+      register: dry_run
+      changed_when: false
+      failed_when: false
+
+    - name: Display dry run results
+      debug:
+        msg: "Dry run {{ 'succeeded' if dry_run.rc == 0 else 'failed' }}"
+
+    - name: Force renewal if requested
+      command: >
+        certbot renew 
+        --cert-name {{ domain_name }}
+        --webroot 
+        --webroot-path /var/www/letsencrypt
+        --force-renewal
+      when: force_renewal | default(false) | bool
+      register: renewal_result
+
+    - name: Regular renewal check
+      command: >
+        certbot renew 
+        --cert-name {{ domain_name }}
+        --webroot 
+        --webroot-path /var/www/letsencrypt
+      when: not (force_renewal | default(false) | bool)
+      register: renewal_result
+
+    - name: Reload nginx if certificate was renewed
+      service:
+        name: nginx
+        state: reloaded
+      when: renewal_result.changed
+
+    - name: Display renewal results
+      debug:
+        msg: |
+          Certificate Renewal Status:
+          - Domain: {{ domain_name }}
+          - Renewal needed: {{ renewal_result.changed }}
+          - Command output: {{ renewal_result.stdout | default('No renewal performed') }}
+          
+          To force renewal, run:
+          ansible-playbook -i inventory/production.yml playbooks/renew-ssl.yml -e force_renewal=true
