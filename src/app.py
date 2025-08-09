@@ -39,10 +39,9 @@ extracted_claims = {}
 def validate_configuration():
     """Validate all required environment variables"""
     required_vars = {
-        'LINKEDTRUST_EMAIL': 'LinkedTrust email for authentication',
-        'LINKEDTRUST_PASSWORD': 'LinkedTrust password for authentication', 
         'ANTHROPIC_API_KEY': 'Claude API key for claim extraction',
-        'FLASK_SECRET_KEY': 'Flask secret key for session security'
+        'FLASK_SECRET_KEY': 'Flask secret key for session security',
+        'LINKEDTRUST_BASE_URL': 'LinkedTrust API URL'
     }
     
     missing_vars = []
@@ -58,76 +57,28 @@ def validate_configuration():
     
     return True
 
-class LinkedTrustAuth:
+class LinkedTrustClient:
+    """Simple client for LinkedTrust API - creates claims without authentication"""
     def __init__(self):
-        self.base_url = os.getenv('LINKEDTRUST_BASE_URL', 'https://dev.linkedtrust.us')
-        self.email = os.getenv('LINKEDTRUST_EMAIL')
-        self.password = os.getenv('LINKEDTRUST_PASSWORD')
-        self.access_token = None
-        self.refresh_token = None
-        self.user_info = None
-        self.login_time = None
-        
-        if not self.email or not self.password:
-            raise ValueError("LINKEDTRUST_EMAIL and LINKEDTRUST_PASSWORD environment variables are required")
-    
-    def auto_login(self):
-        """Auto login using environment variables"""
-        return self.login(self.email, self.password)
-    
-    def login(self, email: str, password: str):
-        """Login to LinkedTrust API"""
-        url = f"{self.base_url}/auth/login"
-        payload = {"email": email, "password": password}
-        
-        try:
-            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
-            
-            if response.status_code == 200:
-                data = response.json()
-                self.access_token = data.get("accessToken")
-                self.refresh_token = data.get("refreshToken")
-                self.user_info = data.get("user")
-                self.login_time = datetime.now().isoformat()
-                
-                return {"success": True, "message": "Login successful", "data": data}
-            else:
-                return {"success": False, "error": f"Login failed with status {response.status_code}", "details": response.text}
-                
-        except requests.RequestException as e:
-            return {"success": False, "error": f"Request failed: {str(e)}"}
-    
-    def get_auth_headers(self):
-        """Get authorization headers, auto-login if needed"""
-        if not self.access_token:
-            result = self.auto_login()
-            if not result["success"]:
-                raise Exception(f"Auto-login failed: {result['error']}")
-        
-        return {
-            "Authorization": f"Bearer {self.access_token}",
-            "Content-Type": "application/json"
-        }
-    
-    def is_authenticated(self):
-        """Check if we have a valid access token"""
-        return bool(self.access_token)
+        self.base_url = os.getenv('LINKEDTRUST_BASE_URL', 'https://live.linkedtrust.us')
     
     def create_claim(self, claim_data):
-        """Create a new claim"""
+        """Create a new claim without authentication"""
         url = f"{self.base_url}/api/v4/claims"
         
+        # Add issuerId as the extraction service itself
+        claim_data['issuerId'] = 'https://extract.linkedtrust.us'
+        claim_data['issuerIdType'] = 'URL'
+        
         try:
-            response = requests.post(url, json=claim_data, headers=self.get_auth_headers())
+            response = requests.post(url, json=claim_data, headers={"Content-Type": "application/json"})
             
-            if response.status_code == 200:
+            if response.status_code in [200, 201]:
                 try:
                     response_data = response.json()
                     return {"success": True, "data": response_data}
                 except json.JSONDecodeError:
                     return {"success": True, "data": {"response": response.text}}
-            elif response.status_code == 201:
-                return {"success": True, "data": response.json()}
             else:
                 return {"success": False, "error": f"Failed to create claim: {response.status_code}", "details": response.text}
                 
@@ -140,11 +91,11 @@ if not validate_configuration():
 
 # Initialize LinkedTrust client
 try:
-    auth_client = LinkedTrustAuth()
+    linkedtrust_client = LinkedTrustClient()
     print("✅ LinkedTrust API configured successfully")
-except ValueError as e:
+except Exception as e:
     logger.error(f"LinkedTrust configuration error: {e}")
-    auth_client = None
+    linkedtrust_client = None
 
 # Test Claude API connection
 try:
@@ -307,21 +258,11 @@ def publish_claims_to_linkedtrust(claim_id):
     if claim_id not in extracted_claims:
         return jsonify({'success': False, 'error': 'Claims not found'}), 404
     
-    if not auth_client:
+    if not linkedtrust_client:
         return jsonify({'success': False, 'error': 'LinkedTrust not configured'}), 500
     
     try:
         claims_data = extracted_claims[claim_id]
-        
-        # Ensure we're authenticated with LinkedTrust
-        if not auth_client.is_authenticated():
-            auth_result = auth_client.auto_login()
-            if not auth_result["success"]:
-                return jsonify({
-                    'success': False, 
-                    'error': 'Failed to authenticate with LinkedTrust',
-                    'details': auth_result["error"]
-                }), 401
         
         published_claims = []
         failed_claims = []
@@ -330,7 +271,7 @@ def publish_claims_to_linkedtrust(claim_id):
             if claim.get('status') == 'draft':
                 try:
                     # Transform the claim data to LinkedTrust format - FIXED null values
-                    inkedtrust_payload = {
+                    linkedtrust_payload = {
                         "subject": claim.get('subject', None),
                         "claim": claim.get('claim', claim.get('type', 'Impact')),
                         "object": claim.get('object', claim.get('description', None)),
@@ -358,7 +299,7 @@ def publish_claims_to_linkedtrust(claim_id):
                         continue
                     
                     # Post to LinkedTrust
-                    result = auth_client.create_claim(linkedtrust_payload)
+                    result = linkedtrust_client.create_claim(linkedtrust_payload)
                     
                     if result["success"]:
                         # Extract claim ID from response
@@ -442,7 +383,7 @@ def publish_single_claim_to_linkedtrust(claim_id, claim_index):
     if claim_id not in extracted_claims:
         return jsonify({'success': False, 'error': 'Claims not found'}), 404
     
-    if not auth_client:
+    if not linkedtrust_client:
         return jsonify({'success': False, 'error': 'LinkedTrust not configured'}), 500
     
     try:
@@ -460,16 +401,6 @@ def publish_single_claim_to_linkedtrust(claim_id, claim_index):
         
         if target_claim.get('status') != 'draft':
             return jsonify({'success': False, 'error': f'Claim is already {target_claim.get("status")}'}), 400
-        
-        # Ensure we're authenticated with LinkedTrust
-        if not auth_client.is_authenticated():
-            auth_result = auth_client.auto_login()
-            if not auth_result["success"]:
-                return jsonify({
-                    'success': False, 
-                    'error': 'Failed to authenticate with LinkedTrust',
-                    'details': auth_result["error"]
-                }), 401
         
         try:
             # Transform the claim data to LinkedTrust format - FIXED null values
@@ -499,7 +430,7 @@ def publish_single_claim_to_linkedtrust(claim_id, claim_index):
                 }), 400
             
             # Post to LinkedTrust
-            result = auth_client.create_claim(linkedtrust_payload)
+            result = linkedtrust_client.create_claim(linkedtrust_payload)
             
             if result["success"]:
                 # Extract claim ID from response
@@ -561,7 +492,7 @@ def publish_single_claim_to_linkedtrust(claim_id, claim_index):
 def config_status():
     """Check configuration status"""
     status = {
-        'linkedtrust_configured': auth_client is not None,
+        'linkedtrust_configured': linkedtrust_client is not None,
         'claude_api_configured': claude_api_configured,
         'flask_secret_configured': bool(os.getenv('FLASK_SECRET_KEY')),
         'upload_folder_exists': os.path.exists(UPLOAD_FOLDER),
@@ -585,7 +516,7 @@ if __name__ == '__main__':
     
     print("🚀 Starting Claim Extractor Web Application")
     print(f"📍 Server will run on http://localhost:{port}")
-    print(f"🔐 LinkedTrust configured: {auth_client is not None}")
+    print(f"🔐 LinkedTrust configured: {linkedtrust_client is not None}")
     print(f"🤖 Claude API configured: {claude_api_configured}")
     
     app.run(debug=debug, host="0.0.0.0", port=port)
