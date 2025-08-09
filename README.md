@@ -4,6 +4,18 @@ Web service for extracting structured claims from PDF documents and pushing them
 
 **Live Demo**: [https://extract.linkedtrust.us](https://extract.linkedtrust.us)
 
+## Architecture Overview
+
+### Important: Data Storage Philosophy
+
+This service uses a **hybrid storage approach**:
+
+- **Local PostgreSQL Database**: Stores ONLY draft claims, uploaded PDFs metadata, and processing status
+- **Decentralized Backend (live.linkedtrust.us)**: Stores ALL published claims and validations
+- **Key Point**: Once claims are published to LinkedTrust, they are NO LONGER stored locally. All queries for published claims use the LinkedTrust API.
+
+For detailed architecture and purpose, see [PURPOSE.md](PURPOSE.md)
+
 ## Quick Start
 
 ```bash
