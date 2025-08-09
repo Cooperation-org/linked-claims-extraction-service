@@ -67,7 +67,7 @@ class LinkedTrustClient:
         url = f"{self.base_url}/api/v4/claims"
         
         # Add issuerId as the extraction service itself
-        claim_data['issuerId'] = 'https://extract.linkedtrust.us'
+        claim_data['issuerId'] = 'https://parse.linkedtrust.us'
         claim_data['issuerIdType'] = 'URL'
         
         try:
