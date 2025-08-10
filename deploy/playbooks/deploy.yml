@@ -55,25 +55,34 @@
 
     - name: Create PostgreSQL database user
       postgresql_user:
-        name: "{{ db_user | default('linkedclaims') }}"
+        name: "{{ db_user }}"
         password: "{{ db_password }}"
         state: present
-      become_user: postgres
+        login_host: "{{ db_host | default('localhost') }}"
+        login_user: "{{ db_admin_user | default('postgres') }}"
+        login_password: "{{ db_admin_password }}"
+      become: yes
 
     - name: Create PostgreSQL database
       postgresql_db:
-        name: "{{ db_name | default('linkedclaims_extraction') }}"
-        owner: "{{ db_user | default('linkedclaims') }}"
+        name: "{{ db_name }}"
+        owner: "{{ db_user }}"
         state: present
-      become_user: postgres
+        login_host: "{{ db_host | default('localhost') }}"
+        login_user: "{{ db_admin_user | default('postgres') }}"
+        login_password: "{{ db_admin_password }}"
+      become: yes
 
     - name: Grant all privileges on database to user
       postgresql_privs:
-        db: "{{ db_name | default('linkedclaims_extraction') }}"
-        role: "{{ db_user | default('linkedclaims') }}"
+        db: "{{ db_name }}"
+        role: "{{ db_user }}"
         type: database
         privs: ALL
-      become_user: postgres
+        login_host: "{{ db_host | default('localhost') }}"
+        login_user: "{{ db_admin_user | default('postgres') }}"
+        login_password: "{{ db_admin_password }}"
+      become: yes
 
     # ===== APPLICATION USER =====
     - name: Create application user
@@ -94,6 +103,7 @@
         force: yes
       become_user: "{{ app_user }}"
       register: git_result
+      tags: update
 
     - name: Create virtual environment
       command: "python3 -m venv {{ app_dir }}/venv"
@@ -109,6 +119,7 @@
         group: "{{ app_user }}"
         mode: '0600'
       register: env_result
+      tags: update
 
     - name: Install/Update Python dependencies
       pip:
@@ -117,6 +128,7 @@
         virtualenv_python: python3
       become_user: "{{ app_user }}"
       when: git_result.changed or env_result.changed
+      tags: update
 
     - name: Create uploads directory
       file:
@@ -130,15 +142,18 @@
     - name: Initialize/Update database with Flask-Migrate
       shell: |
         cd {{ app_dir }}
-        source venv/bin/activate
+        . venv/bin/activate
         export FLASK_APP=src/app.py
         flask db init || true
         flask db migrate -m "Auto migration" || true
         flask db upgrade
+      args:
+        executable: /bin/bash
       become_user: "{{ app_user }}"
       environment:
-        DATABASE_URL: "postgresql://{{ db_user | default('linkedclaims') }}:{{ db_password }}@localhost/{{ db_name | default('linkedclaims_extraction') }}"
+        DATABASE_URL: "postgresql://{{ db_user }}:{{ db_password }}@localhost/{{ db_name }}"
       when: git_result.changed or env_result.changed
+      tags: update
 
     # ===== SUPERVISOR CONFIGURATION =====
     - name: Deploy supervisor configuration for Flask app
@@ -172,12 +187,14 @@
         name: "{{ app_name }}"
         state: restarted
       when: git_result.changed or env_result.changed or supervisor_flask.changed
+      tags: update
 
     - name: Restart Celery worker if code or config changed
       supervisorctl:
         name: "{{ app_name }}-celery"
         state: restarted
       when: git_result.changed or env_result.changed or supervisor_celery.changed
+      tags: update
 
     # ===== SSL CERTIFICATE =====
     - name: Check if SSL certificate already exists
@@ -256,12 +273,23 @@
       command: supervisorctl status
       register: service_status
       changed_when: false
+      failed_when: false
+    
+    - name: Check our service status
+      shell: |
+        supervisorctl status | grep -E "^{{ app_name }}(-celery)?\s" || true
+      register: our_services
+      changed_when: false
+      failed_when: false
 
     - name: Test certificate renewal
-      command: certbot renew --dry-run
+      command: certbot renew --dry-run --non-interactive
       register: renewal_test
       changed_when: false
       failed_when: false
+      ignore_errors: yes
+      async: 30
+      poll: 5
 
     - name: Display deployment status
       debug:
@@ -270,17 +298,23 @@
           ✅ DEPLOYMENT COMPLETE
           ========================================
           
-          Services Status:
+          🌐 LIVE URL: https://{{ domain_name }}
+          
+          Our Services:
+          {{ our_services.stdout }}
+          
+          All Services (INFO only - other services may be unrelated):
           {{ service_status.stdout }}
           
-          Site URL: https://{{ domain_name }}
-          
           SSL Certificate: {{ 'Installed' if (ssl_cert.stat.exists or certbot_result.changed) else 'Not installed' }}
-          Auto-renewal: {{ 'Working' if renewal_test.rc == 0 else 'Check manually' }}
+          Auto-renewal: {{ 'Working' if (renewal_test.rc | default(1) == 0) else 'Check manually' }}
           
           Changes Applied:
           - Code updated: {{ git_result.changed }}
           - Config updated: {{ env_result.changed }}
           - Database migrated: {{ git_result.changed or env_result.changed }}
           
+          ========================================
+          
+          🔗 Access your site at: https://{{ domain_name }}
           ========================================

@@ -25,6 +25,7 @@
 
 ## Deploy
 
+### Full Deployment (First Time)
 Run ONE command - it handles everything:
 
 ```bash
@@ -41,6 +42,19 @@ This single playbook:
 - ✅ Only restarts services when needed
 - ✅ Skips already completed steps
 
+### Quick Update (Code Changes Only)
+For faster deployments when you've only changed code:
+
+```bash
+ansible-playbook -i inventory/production.yml playbooks/deploy.yml --tags update
+```
+
+This only runs:
+- ✅ Pull latest code from GitHub
+- ✅ Update Python dependencies (if requirements.txt changed)
+- ✅ Run database migrations
+- ✅ Restart Flask app and Celery workers
+
 ## Verify Deployment
 
 ```bash
@@ -55,13 +69,6 @@ tail -f /var/log/supervisor/claims-extractor.log
 tail -f /var/log/supervisor/claims-extractor-celery.log
 ```
 
-## Update Code
-
-Just run the same command - it's smart enough to only update what changed:
-
-```bash
-ansible-playbook -i inventory/production.yml playbooks/deploy.yml
-```
 
 ## Database Access
 

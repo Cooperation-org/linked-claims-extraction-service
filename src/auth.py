@@ -72,8 +72,13 @@ def create_auth_routes(app):
     def login():
         """Login page and handler"""
         if request.method == 'GET':
-            # Return login page
-            return '''
+            # Check if OAuth is configured
+            google_client_id = app.config.get('GOOGLE_CLIENT_ID')
+            github_client_id = app.config.get('GITHUB_CLIENT_ID')
+            
+            # Return login page with template variables
+            from flask import render_template_string
+            return render_template_string('''
             <!DOCTYPE html>
             <html>
             <head>
@@ -126,16 +131,22 @@ def create_auth_routes(app):
                 <div class="login-box">
                     <h2>Login to Linked Claims Extraction</h2>
                     
+                    {% if google_client_id or github_client_id %}
                     <div class="oauth-buttons">
+                        {% if google_client_id %}
                         <a href="/auth/google" class="oauth-btn google-btn">
                             Login with Google
                         </a>
+                        {% endif %}
+                        {% if github_client_id %}
                         <a href="/auth/github" class="oauth-btn github-btn">
                             Login with GitHub
                         </a>
+                        {% endif %}
                     </div>
                     
                     <div class="divider">OR</div>
+                    {% endif %}
                     
                     <form method="POST" class="email-form">
                         <input type="email" name="email" placeholder="Email" required>
@@ -145,7 +156,7 @@ def create_auth_routes(app):
                 </div>
             </body>
             </html>
-            '''
+            ''', google_client_id=google_client_id, github_client_id=github_client_id)
         
         # Handle email/password login
         email = request.form.get('email')
@@ -186,7 +197,14 @@ def create_auth_routes(app):
     @app.route('/auth/google')
     def google_login():
         """Initiate Google OAuth"""
-        client_id = app.config['GOOGLE_CLIENT_ID']
+        client_id = app.config.get('GOOGLE_CLIENT_ID')
+        
+        if not client_id:
+            # OAuth not configured, redirect to login with message
+            from flask import flash
+            flash('Google OAuth is not configured. Please use email/password login.')
+            return redirect(url_for('login'))
+        
         redirect_uri = url_for('google_callback', _external=True)
         
         # Build Google OAuth URL
@@ -239,7 +257,14 @@ def create_auth_routes(app):
     @app.route('/auth/github')
     def github_login():
         """Initiate GitHub OAuth"""
-        client_id = app.config['GITHUB_CLIENT_ID']
+        client_id = app.config.get('GITHUB_CLIENT_ID')
+        
+        if not client_id:
+            # OAuth not configured, redirect to login with message
+            from flask import flash
+            flash('GitHub OAuth is not configured. Please use email/password login.')
+            return redirect(url_for('login'))
+        
         redirect_uri = url_for('github_callback', _external=True)
         
         # Build GitHub OAuth URL
