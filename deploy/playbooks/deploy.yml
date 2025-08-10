@@ -6,25 +6,76 @@
     - ../group_vars/webservers.yml
   
   tasks:
-    - name: "Check available Python versions"
-      shell: "ls /usr/bin/python3* || true"
-      register: python_versions
+    # ===== SYSTEM DEPENDENCIES =====
+    - name: Check if PostgreSQL is already installed
+      command: which psql
+      register: postgres_check
+      failed_when: false
       changed_when: false
 
-    - name: "Display available Python versions"
-      debug:
-        var: python_versions.stdout_lines
-
-    - name: "Ensure Python 3 and pip are installed"
+    - name: Install system dependencies (without PostgreSQL if already exists)
       apt:
-        name: 
+        name:
           - python3
           - python3-venv
           - python3-dev
           - python3-pip
+          - python3-psycopg2
+          - redis-server
+          - supervisor
+          - nginx
+          - git
+          - build-essential
+          - libpq-dev
+          - certbot
+          - python3-certbot-nginx
         state: present
         update_cache: yes
 
+    - name: Install PostgreSQL only if not present
+      apt:
+        name:
+          - postgresql
+          - postgresql-contrib
+        state: present
+      when: postgres_check.rc != 0
+
+    # ===== DATABASE SETUP =====
+    - name: Ensure PostgreSQL is running
+      systemd:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    - name: Ensure Redis is running
+      systemd:
+        name: redis-server
+        state: started
+        enabled: yes
+
+    - name: Create PostgreSQL database user
+      postgresql_user:
+        name: "{{ db_user | default('linkedclaims') }}"
+        password: "{{ db_password }}"
+        state: present
+      become_user: postgres
+
+    - name: Create PostgreSQL database
+      postgresql_db:
+        name: "{{ db_name | default('linkedclaims_extraction') }}"
+        owner: "{{ db_user | default('linkedclaims') }}"
+        state: present
+      become_user: postgres
+
+    - name: Grant all privileges on database to user
+      postgresql_privs:
+        db: "{{ db_name | default('linkedclaims_extraction') }}"
+        role: "{{ db_user | default('linkedclaims') }}"
+        type: database
+        privs: ALL
+      become_user: postgres
+
+    # ===== APPLICATION USER =====
     - name: Create application user
       user:
         name: "{{ app_user }}"
@@ -33,37 +84,7 @@
         create_home: yes
         state: present
 
-    - name: Create .ssh directory for deploy key
-      file:
-        path: "/home/{{ app_user }}/.ssh"
-        state: directory
-        owner: "{{ app_user }}"
-        group: "{{ app_user }}"
-        mode: '0700'
-
-    - name: Copy deploy key if provided
-      copy:
-        content: "{{ github_deploy_key }}"
-        dest: "/home/{{ app_user }}/.ssh/id_rsa_deploy"
-        owner: "{{ app_user }}"
-        group: "{{ app_user }}"
-        mode: '0600'
-      when: github_deploy_key is defined
-
-    - name: Configure SSH for GitHub
-      copy:
-        content: |
-          Host github.com
-            HostName github.com
-            User git
-            IdentityFile ~/.ssh/id_rsa_deploy
-            StrictHostKeyChecking no
-        dest: "/home/{{ app_user }}/.ssh/config"
-        owner: "{{ app_user }}"
-        group: "{{ app_user }}"
-        mode: '0644'
-      when: github_deploy_key is defined
-
+    # ===== CODE DEPLOYMENT =====
     - name: Pull latest code
       git:
         repo: "{{ git_repo }}"
@@ -72,27 +93,30 @@
         accept_hostkey: yes
         force: yes
       become_user: "{{ app_user }}"
+      register: git_result
 
-    - name: "Create virtual environment"
+    - name: Create virtual environment
       command: "python3 -m venv {{ app_dir }}/venv"
       args:
         creates: "{{ app_dir }}/venv"
       become_user: "{{ app_user }}"
 
-    - name: Copy .env file
+    - name: Copy .env file with database config
       template:
-        src: env.j2
+        src: env-with-db.j2
         dest: "{{ app_dir }}/.env"
         owner: "{{ app_user }}"
         group: "{{ app_user }}"
         mode: '0600'
+      register: env_result
 
-    - name: Install Python dependencies
+    - name: Install/Update Python dependencies
       pip:
         requirements: "{{ app_dir }}/requirements.txt"
         virtualenv: "{{ app_dir }}/venv"
         virtualenv_python: python3
       become_user: "{{ app_user }}"
+      when: git_result.changed or env_result.changed
 
     - name: Create uploads directory
       file:
@@ -102,87 +126,161 @@
         group: "{{ app_user }}"
         mode: '0755'
 
-    - name: Check if old systemd service exists
-      stat:
-        path: /etc/systemd/system/extraction-service.service
-      register: old_systemd_service
+    # ===== DATABASE MIGRATIONS =====
+    - name: Initialize/Update database with Flask-Migrate
+      shell: |
+        cd {{ app_dir }}
+        source venv/bin/activate
+        export FLASK_APP=src/app.py
+        flask db init || true
+        flask db migrate -m "Auto migration" || true
+        flask db upgrade
+      become_user: "{{ app_user }}"
+      environment:
+        DATABASE_URL: "postgresql://{{ db_user | default('linkedclaims') }}:{{ db_password }}@localhost/{{ db_name | default('linkedclaims_extraction') }}"
+      when: git_result.changed or env_result.changed
 
-    - name: Stop old systemd service if running
-      systemd:
-        name: extraction-service
-        state: stopped
-      when: old_systemd_service.stat.exists
-      ignore_errors: yes
-
-    - name: Remove old systemd service file
-      file:
-        path: /etc/systemd/system/extraction-service.service
-        state: absent
-      when: old_systemd_service.stat.exists
-      
-    - name: Reload systemd daemon
-      systemd:
-        daemon_reload: yes
-      when: old_systemd_service.stat.exists
-
-    - name: Deploy supervisor configuration
+    # ===== SUPERVISOR CONFIGURATION =====
+    - name: Deploy supervisor configuration for Flask app
       template:
-        src: supervisor.conf.j2
+        src: supervisor-flask.conf.j2
         dest: /etc/supervisor/conf.d/{{ app_name }}.conf
         owner: root
         group: root
-        mode: 0644
+        mode: '0644'
+      register: supervisor_flask
+
+    - name: Deploy supervisor configuration for Celery worker
+      template:
+        src: supervisor-celery.conf.j2
+        dest: /etc/supervisor/conf.d/{{ app_name }}-celery.conf
+        owner: root
+        group: root
+        mode: '0644'
+      register: supervisor_celery
 
     - name: Reread supervisor configs
       command: supervisorctl reread
+      when: supervisor_flask.changed or supervisor_celery.changed
       
     - name: Update supervisor
       command: supervisorctl update
+      when: supervisor_flask.changed or supervisor_celery.changed
 
-    - name: Check if SSL certificate exists
+    - name: Restart Flask app if code or config changed
+      supervisorctl:
+        name: "{{ app_name }}"
+        state: restarted
+      when: git_result.changed or env_result.changed or supervisor_flask.changed
+
+    - name: Restart Celery worker if code or config changed
+      supervisorctl:
+        name: "{{ app_name }}-celery"
+        state: restarted
+      when: git_result.changed or env_result.changed or supervisor_celery.changed
+
+    # ===== SSL CERTIFICATE =====
+    - name: Check if SSL certificate already exists
       stat:
         path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
       register: ssl_cert
 
-    - name: Create Nginx site configuration (HTTPS)
-      template:
-        src: nginx-site-https.conf.j2
-        dest: "/etc/nginx/sites-available/{{ domain_name }}"
-        mode: '0644'
-      when: ssl_cert.stat.exists
-      notify: reload nginx
+    - name: Create webroot directory for ACME challenge
+      file:
+        path: /var/www/letsencrypt
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
 
-    - name: Create Nginx site configuration (HTTP)
+    - name: Deploy Nginx configuration (HTTP for initial cert)
       template:
         src: nginx-site-http.conf.j2
         dest: "/etc/nginx/sites-available/{{ domain_name }}"
         mode: '0644'
       when: not ssl_cert.stat.exists
-      notify: reload nginx
 
     - name: Enable Nginx site
       file:
         src: "/etc/nginx/sites-available/{{ domain_name }}"
         dest: "/etc/nginx/sites-enabled/{{ domain_name }}"
         state: link
-      notify: reload nginx
 
-    - name: Check supervisor status
-      command: supervisorctl status {{ app_name }}
-      register: service_status
-      failed_when: false
+    - name: Test nginx configuration
+      command: nginx -t
+      changed_when: false
 
-    - name: Display service status
-      debug:
-        msg: "Service status: {{ service_status.stdout }} - Check https://{{ domain_name }}"
-
-  handlers:
-    - name: restart extraction service
-      supervisorctl:
-        name: "{{ app_name }}"
-        state: restarted
-
-    - name: reload nginx
+    - name: Reload nginx for ACME challenge
       service:
         name: nginx
         state: reloaded
+
+    - name: Obtain SSL certificate using webroot
+      command: >
+        certbot certonly
+        --webroot
+        --webroot-path /var/www/letsencrypt
+        --non-interactive
+        --agree-tos
+        --email {{ admin_email }}
+        -d {{ domain_name }}
+        --keep-until-expiring
+      when: not ssl_cert.stat.exists
+      register: certbot_result
+
+    - name: Deploy HTTPS nginx configuration
+      template:
+        src: nginx-site-https.conf.j2
+        dest: "/etc/nginx/sites-available/{{ domain_name }}"
+        mode: '0644'
+      when: ssl_cert.stat.exists or certbot_result.changed
+      register: nginx_config
+
+    - name: Reload nginx with final configuration
+      service:
+        name: nginx
+        state: reloaded
+      when: nginx_config.changed
+
+    - name: Setup auto-renewal cron job
+      cron:
+        name: "Let's Encrypt renewal for {{ domain_name }}"
+        job: "certbot renew --quiet --webroot --webroot-path /var/www/letsencrypt --post-hook 'systemctl reload nginx'"
+        hour: "2"
+        minute: "30"
+        weekday: "1"
+        state: present
+
+    # ===== STATUS CHECK =====
+    - name: Check all services status
+      command: supervisorctl status
+      register: service_status
+      changed_when: false
+
+    - name: Test certificate renewal
+      command: certbot renew --dry-run
+      register: renewal_test
+      changed_when: false
+      failed_when: false
+
+    - name: Display deployment status
+      debug:
+        msg: |
+          ========================================
+          ✅ DEPLOYMENT COMPLETE
+          ========================================
+          
+          Services Status:
+          {{ service_status.stdout }}
+          
+          Site URL: https://{{ domain_name }}
+          
+          SSL Certificate: {{ 'Installed' if (ssl_cert.stat.exists or certbot_result.changed) else 'Not installed' }}
+          Auto-renewal: {{ 'Working' if renewal_test.rc == 0 else 'Check manually' }}
+          
+          Changes Applied:
+          - Code updated: {{ git_result.changed }}
+          - Config updated: {{ env_result.changed }}
+          - Database migrated: {{ git_result.changed or env_result.changed }}
+          
+          ========================================

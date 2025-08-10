@@ -49,7 +49,7 @@ celery -A celery_app.celery_app worker --loglevel=info
 
 # Run Flask development server (in separate terminal)
 cd src
-python app_new.py
+python app.py
 # Server runs on http://localhost:5050
 ```
 
@@ -87,7 +87,7 @@ cp .env.example .env
 ## Key Application Components
 
 ### Core Modules
-- `src/app.py`: Main Flask application with routes and LinkedTrust integration
+- `src/app.py`: Main Flask application with routes, background processing, and LinkedTrust integration
 - `src/pdf_parser/`: PDF processing and document management modules
 - `src/claim_viz.py`: Claim visualization utilities
 - `src/templates/`: Flask HTML templates
