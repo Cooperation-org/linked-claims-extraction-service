@@ -1,80 +1,242 @@
 # Deployment Guide for Linked Claims Extraction Service
 
-This guide explains how to deploy the extraction service.
+This guide covers deploying the service with full background processing support (PostgreSQL, Redis, Celery).
 
 ## Prerequisites
 
-1. Server with deploy user access
-2. SSH access to the server (deploy@139.177.194.35)
-3. Ansible installed locally
-4. Domain: parse.linkedtrust.us pointing to the server
+- Ubuntu server (20.04 or 22.04)
+- Ansible installed locally
+- SSH access to the server
+- Domain name configured (e.g., extract.linkedtrust.us)
 
-## Full Deployment
+## Setup Steps
 
-### 1. Configure Settings
+### 1. Prepare Ansible Vault
 
-Edit `group_vars/webservers.yml` with your actual values:
-- `anthropic_api_key`: Your Claude API key
-- `flask_secret_key`: A random secret key
-- GitHub token is already configured in git_repo URL
-
-### 2. Deploy
+Create your vault file with sensitive data:
 
 ```bash
-cd ~/parent/linked-claims-extraction-service/deploy
-ansible-playbook playbooks/deploy.yml
+cp group_vars/vault.yml.example group_vars/vault.yml
+ansible-vault encrypt group_vars/vault.yml
 ```
 
-## Quick Code Updates
-
-After making code changes, use the quick update playbook:
+Edit the vault to add your passwords and API keys:
 
 ```bash
-cd deploy
-ansible-playbook playbooks/update.yml
+ansible-vault edit group_vars/vault.yml
 ```
 
-This will:
-1. Pull the latest code from git  
-2. Restart the extraction service
+### 2. Update Inventory
 
-Takes about 10 seconds vs full deployment which takes 2-3 minutes.
+Edit `inventory/production.yml`:
+
+```yaml
+all:
+  hosts:
+    extract-server:
+      ansible_host: YOUR_SERVER_IP
+      ansible_user: root
+      ansible_ssh_private_key_file: ~/.ssh/your_key.pem
+  children:
+    webservers:
+      hosts:
+        extract-server:
+```
+
+### 3. Run Initial Deployment
+
+Deploy the complete stack:
+
+```bash
+ansible-playbook -i inventory/production.yml playbooks/deploy-with-background.yml --ask-vault-pass
+```
+
+### 4. Set Up SSL with Let's Encrypt
+
+After initial deployment, set up SSL certificates for parse.linkedtrust.us:
+
+```bash
+# Ensure DNS is pointing to your server first!
+# parse.linkedtrust.us should resolve to your server's IP
+
+# Run SSL setup
+ansible-playbook -i inventory/production.yml playbooks/setup-ssl.yml --ask-vault-pass
+```
+
+The SSL setup will:
+- Install certbot
+- Create Let's Encrypt certificate for parse.linkedtrust.us
+- Configure Nginx with HTTPS
+- Set up auto-renewal via cron
+- Add security headers (HSTS, X-Frame-Options, etc.)
+
+### 5. Certificate Management
+
+#### Check Certificate Status
+```bash
+ansible-playbook -i inventory/production.yml playbooks/renew-ssl.yml --ask-vault-pass
+```
+
+#### Force Certificate Renewal
+```bash
+ansible-playbook -i inventory/production.yml playbooks/renew-ssl.yml --ask-vault-pass -e force_renewal=true
+```
+
+#### Manual Certificate Operations (on server)
+```bash
+# Check certificate expiration
+certbot certificates
+
+# Test renewal
+certbot renew --dry-run
+
+# Force renewal
+certbot renew --force-renewal
+
+# View renewal configuration
+cat /etc/cron.d/certbot
+```
+
+## Service Architecture
+
+The deployment sets up:
+
+1. **PostgreSQL Database** - Stores documents, draft claims, and job tracking
+2. **Redis** - Message broker for Celery
+3. **Flask Application** - Main web service (Gunicorn)
+4. **Celery Worker** - Background PDF processing
+5. **Nginx** - Reverse proxy and static file serving
+6. **Supervisor** - Process management
 
 ## Service Management
 
+### Check Service Status
+
+SSH to the server and run:
+
 ```bash
-# Check service status
-sudo systemctl status extraction-service
+supervisorctl status
+```
 
-# View logs
-sudo journalctl -u extraction-service -f
+You should see:
+- `claims-extractor` (Flask app)
+- `claims-extractor-celery` (Celery worker)
 
-# Restart service
-sudo systemctl restart extraction-service
+### View Logs
 
-# Reload nginx
-sudo nginx -t && sudo systemctl reload nginx
+```bash
+# Flask app logs
+tail -f /var/log/supervisor/claims-extractor.log
+
+# Celery worker logs
+tail -f /var/log/supervisor/claims-extractor-celery.log
+
+# Nginx logs
+tail -f /var/log/nginx/access.log
+tail -f /var/log/nginx/error.log
+```
+
+### Restart Services
+
+```bash
+# Restart Flask app
+supervisorctl restart claims-extractor
+
+# Restart Celery worker
+supervisorctl restart claims-extractor-celery
+
+# Restart all
+supervisorctl restart all
+```
+
+### Database Management
+
+```bash
+# Connect to PostgreSQL
+sudo -u postgres psql -d linkedclaims_extraction
+
+# Run migrations
+cd /home/claims-extractor/linked-claims-extraction-service
+source venv/bin/activate
+export FLASK_APP=src/app_new.py
+flask db upgrade
+```
+
+## Updating the Application
+
+To deploy code updates:
+
+```bash
+ansible-playbook -i inventory/production.yml playbooks/update.yml --ask-vault-pass
+```
+
+Or for a full redeploy:
+
+```bash
+ansible-playbook -i inventory/production.yml playbooks/deploy-with-background.yml --ask-vault-pass
+```
+
+## Monitoring
+
+### Check Background Jobs
+
+View Celery worker status:
+
+```bash
+cd /home/claims-extractor/linked-claims-extraction-service
+source venv/bin/activate
+celery -A src.celery_app.celery_app inspect active
+```
+
+### Database Queries
+
+Check processing status:
+
+```sql
+-- Connect to database
+sudo -u postgres psql -d linkedclaims_extraction
+
+-- View recent documents
+SELECT id, filename, status, upload_time FROM documents ORDER BY upload_time DESC LIMIT 10;
+
+-- View processing jobs
+SELECT id, document_id, job_type, status, started_at FROM processing_jobs ORDER BY started_at DESC LIMIT 10;
+
+-- Count draft claims
+SELECT COUNT(*) FROM draft_claims WHERE status = 'draft';
 ```
 
 ## Troubleshooting
 
-1. **Service won't start**: Check logs with `journalctl -u extraction-service -n 100`
-2. **502 Bad Gateway**: Ensure service is running on port 5050
-3. **File upload fails**: Check uploads directory permissions
-4. **Can't connect to LinkedTrust**: Verify LINKEDTRUST_BASE_URL in .env
+### Services Not Starting
 
-## Port Configuration
+1. Check supervisor logs: `tail -f /var/log/supervisor/supervisord.log`
+2. Check service logs for specific errors
+3. Verify database connection: `sudo -u postgres psql -l`
+4. Verify Redis is running: `redis-cli ping`
 
-- Extraction Service: 5050
-- LinkedTrust Backend: 3000
-- Talent: 3001
+### Database Connection Issues
 
-## Complete Demo Flow
+1. Check PostgreSQL is running: `systemctl status postgresql`
+2. Verify database exists: `sudo -u postgres psql -l`
+3. Check credentials in `/home/claims-extractor/linked-claims-extraction-service/.env`
 
-1. Visit https://extract.linkedtrust.us
-2. Upload PDF document
-3. Extract claims using AI
-4. Publish to LinkedTrust
-5. Copy validation links
-6. Share with beneficiaries
-7. Track validations at https://live.linkedtrust.us
+### Celery Worker Issues
+
+1. Check Redis connection: `redis-cli ping`
+2. View Celery logs: `tail -f /var/log/supervisor/claims-extractor-celery.log`
+3. Check for import errors in worker startup
+
+### PDF Processing Failures
+
+1. Check file upload directory exists: `ls -la /home/claims-extractor/linked-claims-extraction-service/src/uploads/`
+2. Verify Claude API key is set correctly
+3. Check Celery worker is processing tasks
+
+## Security Notes
+
+- All sensitive data should be in Ansible vault
+- Database uses local connections only
+- Redis is bound to localhost only
+- Application runs as non-root user
+- Uploads directory has restricted permissions
