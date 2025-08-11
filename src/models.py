@@ -7,6 +7,40 @@ import json
 
 db = SQLAlchemy()
 
+class User(db.Model):
+    """User model for authentication and session management"""
+    __tablename__ = 'users'
+    
+    id = db.Column(db.String(255), primary_key=True)  # UUID or user ID from OAuth
+    email = db.Column(db.String(255), unique=True, nullable=True)
+    name = db.Column(db.String(255), nullable=True)
+    
+    # OAuth tokens
+    access_token = db.Column(db.Text, nullable=True)
+    refresh_token = db.Column(db.Text, nullable=True)
+    
+    # OAuth provider info
+    provider = db.Column(db.String(50), nullable=True)  # 'google', 'github', 'linkedtrust'
+    provider_id = db.Column(db.String(255), nullable=True)  # ID from provider
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    last_login = db.Column(db.DateTime, nullable=True)
+    
+    # Relationships
+    documents = db.relationship('Document', backref='uploader', lazy='dynamic', 
+                               foreign_keys='Document.user_id')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'email': self.email,
+            'name': self.name,
+            'provider': self.provider,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'last_login': self.last_login.isoformat() if self.last_login else None
+        }
+
 class Document(db.Model):
     """Track uploaded PDF documents"""
     __tablename__ = 'documents'
@@ -21,7 +55,7 @@ class Document(db.Model):
     
     # Document metadata
     effective_date = db.Column(db.Date, nullable=False)
-    user_id = db.Column(db.String(255), nullable=False)  # User who uploaded the document
+    user_id = db.Column(db.String(255), db.ForeignKey('users.id'), nullable=False)  # User who uploaded the document
     upload_time = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     
     # Processing status

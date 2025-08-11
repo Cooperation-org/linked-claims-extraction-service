@@ -3,7 +3,7 @@ Authentication and user session management
 """
 import os
 import secrets
-from flask import session, redirect, url_for, request, jsonify
+from flask import session, redirect, url_for, request, jsonify, render_template_string
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user
 from datetime import datetime, timedelta
 from linkedtrust_client import LinkedTrustClient
@@ -14,16 +14,16 @@ logger = logging.getLogger(__name__)
 # Initialize Flask-Login
 login_manager = LoginManager()
 
-class User(UserMixin):
-    """User class for Flask-Login"""
+class AuthUser(UserMixin):
+    """User class for Flask-Login that wraps database User model"""
     
-    def __init__(self, user_id: str, email: str = None, name: str = None, 
-                 access_token: str = None, refresh_token: str = None):
-        self.id = user_id  # This will be used as user_id in documents table
-        self.email = email
-        self.name = name
-        self.access_token = access_token
-        self.refresh_token = refresh_token
+    def __init__(self, db_user):
+        self.db_user = db_user
+        self.id = db_user.id
+        self.email = db_user.email
+        self.name = db_user.name
+        self.access_token = db_user.access_token
+        self.refresh_token = db_user.refresh_token
         self.authenticated = True
     
     def get_id(self):
@@ -37,20 +37,20 @@ class User(UserMixin):
         return client
 
 
-# User storage (in production, this should be in database or Redis)
-_user_store = {}
-
-
 @login_manager.user_loader
 def load_user(user_id):
-    """Load user from session"""
-    return _user_store.get(user_id)
+    """Load user from database"""
+    from models import User, db
+    db_user = db.session.get(User, user_id)
+    if db_user:
+        return AuthUser(db_user)
+    return None
 
 
 def init_auth(app):
     """Initialize authentication for Flask app"""
     login_manager.init_app(app)
-    login_manager.login_view = 'auth.login'
+    login_manager.login_view = 'login'
     
     # Session configuration
     app.config['SESSION_TYPE'] = 'filesystem'
@@ -65,10 +65,43 @@ def init_auth(app):
     return login_manager
 
 
+def get_or_create_user(user_id, email=None, name=None, provider='linkedtrust', 
+                       access_token=None, refresh_token=None):
+    """Get or create user in database"""
+    from models import User, db
+    
+    db_user = db.session.get(User, user_id)
+    if not db_user:
+        # Create new user
+        db_user = User(
+            id=user_id,
+            email=email,
+            name=name,
+            access_token=access_token,
+            refresh_token=refresh_token,
+            provider=provider,
+            provider_id=user_id
+        )
+        db.session.add(db_user)
+    else:
+        # Update existing user
+        if email:
+            db_user.email = email
+        if name:
+            db_user.name = name
+        if access_token:
+            db_user.access_token = access_token
+        if refresh_token:
+            db_user.refresh_token = refresh_token
+        db_user.last_login = datetime.utcnow()
+    
+    db.session.commit()
+    return db_user
+
 def create_auth_routes(app):
     """Create authentication routes"""
     
-    @app.route('/auth/login', methods=['GET', 'POST'])
+    @app.route('/auth/login', methods=['GET', 'POST'], endpoint='login')
     def login():
         """Login page and handler"""
         if request.method == 'GET':
@@ -77,7 +110,6 @@ def create_auth_routes(app):
             github_client_id = app.config.get('GITHUB_CLIENT_ID')
             
             # Return login page with template variables
-            from flask import render_template_string
             return render_template_string('''
             <!DOCTYPE html>
             <html>
@@ -170,21 +202,22 @@ def create_auth_routes(app):
             client = LinkedTrustClient()
             auth_response = client.authenticate(email, password)
             
-            # Create user session
-            user_id = auth_response.get('user', {}).get('id') or f"user_{secrets.token_hex(8)}"
-            user = User(
+            # Get or create user in database
+            user_data = auth_response.get('user', {})
+            user_id = user_data.get('id') or f"user_{secrets.token_hex(8)}"
+            
+            db_user = get_or_create_user(
                 user_id=user_id,
                 email=email,
-                name=auth_response.get('user', {}).get('name'),
+                name=user_data.get('name'),
+                provider='linkedtrust',
                 access_token=auth_response.get('accessToken'),
                 refresh_token=auth_response.get('refreshToken')
             )
             
-            # Store user
-            _user_store[user_id] = user
-            
-            # Login user
-            login_user(user, remember=True)
+            # Login user with wrapper
+            auth_user = AuthUser(db_user)
+            login_user(auth_user, remember=True)
             
             # Redirect to main page
             next_page = request.args.get('next')
@@ -194,7 +227,7 @@ def create_auth_routes(app):
             logger.error(f"Login failed: {e}")
             return jsonify({'error': 'Authentication failed'}), 401
     
-    @app.route('/auth/google')
+    @app.route('/auth/google', endpoint='google_login')
     def google_login():
         """Initiate Google OAuth"""
         client_id = app.config.get('GOOGLE_CLIENT_ID')
@@ -218,7 +251,7 @@ def create_auth_routes(app):
         
         return redirect(oauth_url)
     
-    @app.route('/auth/google/callback')
+    @app.route('/auth/google/callback', endpoint='google_callback')
     def google_callback():
         """Handle Google OAuth callback"""
         code = request.args.get('code')
@@ -230,23 +263,22 @@ def create_auth_routes(app):
             client = LinkedTrustClient()
             auth_response = client.oauth_callback('google', code)
             
-            # Create user session
+            # Get or create user in database
             user_data = auth_response.get('user', {})
             user_id = user_data.get('id') or f"google_{secrets.token_hex(8)}"
             
-            user = User(
+            db_user = get_or_create_user(
                 user_id=user_id,
                 email=user_data.get('email'),
                 name=user_data.get('name'),
+                provider='google',
                 access_token=auth_response.get('accessToken'),
                 refresh_token=auth_response.get('refreshToken')
             )
             
-            # Store user
-            _user_store[user_id] = user
-            
-            # Login user
-            login_user(user, remember=True)
+            # Login user with wrapper
+            auth_user = AuthUser(db_user)
+            login_user(auth_user, remember=True)
             
             return redirect(url_for('index'))
             
@@ -254,7 +286,7 @@ def create_auth_routes(app):
             logger.error(f"Google OAuth failed: {e}")
             return jsonify({'error': 'OAuth authentication failed'}), 401
     
-    @app.route('/auth/github')
+    @app.route('/auth/github', endpoint='github_login')
     def github_login():
         """Initiate GitHub OAuth"""
         client_id = app.config.get('GITHUB_CLIENT_ID')
@@ -277,7 +309,7 @@ def create_auth_routes(app):
         
         return redirect(oauth_url)
     
-    @app.route('/auth/github/callback')
+    @app.route('/auth/github/callback', endpoint='github_callback')
     def github_callback():
         """Handle GitHub OAuth callback"""
         code = request.args.get('code')
@@ -289,24 +321,23 @@ def create_auth_routes(app):
             client = LinkedTrustClient()
             auth_response = client.oauth_callback('github', code)
             
-            # Create user session
+            # Get or create user in database
             user_data = auth_response.get('user', {})
             github_data = auth_response.get('githubData', {})
             user_id = user_data.get('id') or f"github_{github_data.get('username', secrets.token_hex(8))}"
             
-            user = User(
+            db_user = get_or_create_user(
                 user_id=user_id,
                 email=user_data.get('email') or github_data.get('email'),
                 name=user_data.get('name') or github_data.get('name'),
+                provider='github',
                 access_token=auth_response.get('accessToken'),
                 refresh_token=auth_response.get('refreshToken')
             )
             
-            # Store user
-            _user_store[user_id] = user
-            
-            # Login user
-            login_user(user, remember=True)
+            # Login user with wrapper
+            auth_user = AuthUser(db_user)
+            login_user(auth_user, remember=True)
             
             return redirect(url_for('index'))
             

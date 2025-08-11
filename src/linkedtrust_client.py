@@ -136,7 +136,7 @@ class LinkedTrustClient:
         try:
             response = self._make_request(
                 'POST',
-                '/api/v4/claims',
+                '/api/claims',
                 data=claim_data
             )
             

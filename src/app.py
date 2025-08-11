@@ -14,10 +14,10 @@ from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 # Import our modules
-from models import db, Document, DraftClaim, ProcessingJob, ClaimCache
+from models import db, User, Document, DraftClaim, ProcessingJob, ClaimCache
 from database import init_database, create_tables
 from celery_app import create_celery_app
-from auth import init_auth, create_auth_routes, User
+from auth import init_auth, create_auth_routes, AuthUser
 from linkedtrust_client import LinkedTrustClient
 import tasks  # Import tasks to register them with Celery
 
@@ -592,14 +592,19 @@ def init_db():
 @app.cli.command()
 def create_test_user():
     """Create a test user for development"""
-    from auth import _user_store
     test_user = User(
-        user_id='test_user_1',
+        id='test_user_1',
         email='test@example.com',
-        name='Test User'
+        name='Test User',
+        provider='test'
     )
-    _user_store['test_user_1'] = test_user
-    print("Test user created: test@example.com")
+    existing = db.session.get(User, 'test_user_1')
+    if not existing:
+        db.session.add(test_user)
+        db.session.commit()
+        print("Test user created: test@example.com")
+    else:
+        print("Test user already exists")
 
 if __name__ == '__main__':
     port = int(os.getenv('FLASK_PORT', 5050))
