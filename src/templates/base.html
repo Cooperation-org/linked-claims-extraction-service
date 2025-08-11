@@ -52,13 +52,13 @@
                         Claim Extractor
                     </h4>
                     <nav class="nav flex-column">
-                        <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
+                        <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
+                            <i class="fas fa-home me-2"></i>
+                            Dashboard
+                        </a>
+                        <a class="nav-link {% if request.endpoint == 'upload_file' %}active{% endif %}" href="{{ url_for('upload_file') }}">
                             <i class="fas fa-upload me-2"></i>
                             Upload File
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'view_claims' %}active{% endif %}" href="{{ url_for('view_claims') }}">
-                            <i class="fas fa-eye me-2"></i>
-                            View Claims
                         </a>
                     </nav>
                 </div>
