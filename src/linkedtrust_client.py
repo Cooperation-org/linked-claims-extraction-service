@@ -35,6 +35,12 @@ class LinkedTrustClient:
         if self.access_token:
             headers['Authorization'] = f'Bearer {self.access_token}'
         
+        # Log the request for debugging
+        logger.info(f"Making {method} request to {url}")
+        if data and endpoint == '/auth/login':
+            # Don't log password, but log that we're attempting login
+            logger.info(f"Attempting login with email: {data.get('email')}")
+        
         try:
             response = requests.request(
                 method=method,
@@ -44,11 +50,24 @@ class LinkedTrustClient:
                 headers=headers
             )
             
-            if response.status_code == 401:
-                # Token expired, need to refresh or re-authenticate
-                raise AuthenticationError("Authentication token expired")
+            # Log response status for debugging
+            logger.info(f"Response status: {response.status_code}")
             
-            response.raise_for_status()
+            if response.status_code == 401:
+                # Try to get error message from response
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('error', 'Authentication failed')
+                    logger.error(f"401 Authentication failed: {error_msg}")
+                    raise AuthenticationError(f"401: {error_msg}")
+                except:
+                    logger.error(f"401 with non-JSON response: {response.text}")
+                    raise AuthenticationError("Authentication token expired")
+            
+            if not response.ok:
+                # Log the actual error for debugging
+                logger.error(f"API error {response.status_code}: {response.text}")
+                response.raise_for_status()
             
             if response.text:
                 return response.json()

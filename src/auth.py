@@ -225,7 +225,11 @@ def create_auth_routes(app):
             
         except Exception as e:
             logger.error(f"Login failed: {e}")
-            return jsonify({'error': 'Authentication failed'}), 401
+            error_msg = str(e)
+            # Extract the actual error message if it's an AuthenticationError
+            if '401:' in error_msg:
+                error_msg = error_msg.split('401: ', 1)[-1]
+            return jsonify({'error': error_msg or 'Authentication failed'}), 401
     
     @app.route('/auth/google', endpoint='google_login')
     def google_login():
