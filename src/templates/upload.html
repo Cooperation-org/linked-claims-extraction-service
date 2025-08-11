@@ -19,6 +19,19 @@
                         <input type="file" class="form-control" id="file" name="file" accept=".pdf" required>
                         <div class="form-text">Only PDF files are allowed. Maximum file size: 80MB</div>
                     </div>
+                    
+                    <div class="mb-3">
+                        <label for="public_url" class="form-label">URL of this source</label>
+                        <input type="url" class="form-control" id="public_url" name="public_url" placeholder="https://example.com/document.pdf" required>
+                        <div class="form-text">URL is required for sourcing - this identifies where the document came from</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="effective_date" class="form-label">Effective Date</label>
+                        <input type="date" class="form-control" id="effective_date" name="effective_date" required>
+                        <div class="form-text">When this document or its claims become effective</div>
+                    </div>
+                    
                     <button type="submit" class="btn btn-primary btn-lg">
                         <i class="fas fa-upload me-2"></i>
                         Upload and Extract Claims
