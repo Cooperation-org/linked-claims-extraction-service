@@ -203,7 +203,7 @@ def create_auth_routes(app):
             # OAuth not configured, redirect to login with message
             from flask import flash
             flash('Google OAuth is not configured. Please use email/password login.')
-            return redirect(url_for('login'))
+            return redirect('/auth/login')
         
         redirect_uri = url_for('google_callback', _external=True)
         
@@ -263,7 +263,7 @@ def create_auth_routes(app):
             # OAuth not configured, redirect to login with message
             from flask import flash
             flash('GitHub OAuth is not configured. Please use email/password login.')
-            return redirect(url_for('login'))
+            return redirect('/auth/login')
         
         redirect_uri = url_for('github_callback', _external=True)
         

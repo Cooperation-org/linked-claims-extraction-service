@@ -63,7 +63,7 @@ def allowed_file(filename):
 def index():
     """Main page - redirect to login if not authenticated"""
     if not current_user.is_authenticated:
-        return redirect(url_for('login'))
+        return redirect('/auth/login')
     return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
