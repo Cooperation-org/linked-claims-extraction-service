@@ -186,14 +186,14 @@
       supervisorctl:
         name: "{{ app_name }}"
         state: restarted
-      when: git_result.changed or env_result.changed or supervisor_flask.changed
+      when: (git_result.changed | default(false)) or (env_result.changed | default(false)) or (supervisor_flask.changed | default(false))
       tags: update
 
     - name: Restart Celery worker if code or config changed
       supervisorctl:
         name: "{{ app_name }}-celery"
         state: restarted
-      when: git_result.changed or env_result.changed or supervisor_celery.changed
+      when: (git_result.changed | default(false)) or (env_result.changed | default(false)) or (supervisor_celery.changed | default(false))
       tags: update
 
     # ===== SSL CERTIFICATE =====

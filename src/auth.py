@@ -204,7 +204,8 @@ def create_auth_routes(app):
             
             # Get or create user in database
             user_data = auth_response.get('user', {})
-            user_id = user_data.get('id') or f"user_{secrets.token_hex(8)}"
+            # Convert user ID to string since LinkedTrust returns an integer
+            user_id = str(user_data.get('id')) if user_data.get('id') else f"user_{secrets.token_hex(8)}"
             
             db_user = get_or_create_user(
                 user_id=user_id,
@@ -269,7 +270,8 @@ def create_auth_routes(app):
             
             # Get or create user in database
             user_data = auth_response.get('user', {})
-            user_id = user_data.get('id') or f"google_{secrets.token_hex(8)}"
+            # Convert user ID to string since LinkedTrust returns an integer
+            user_id = str(user_data.get('id')) if user_data.get('id') else f"google_{secrets.token_hex(8)}"
             
             db_user = get_or_create_user(
                 user_id=user_id,
@@ -328,7 +330,8 @@ def create_auth_routes(app):
             # Get or create user in database
             user_data = auth_response.get('user', {})
             github_data = auth_response.get('githubData', {})
-            user_id = user_data.get('id') or f"github_{github_data.get('username', secrets.token_hex(8))}"
+            # Convert user ID to string since LinkedTrust returns an integer
+            user_id = str(user_data.get('id')) if user_data.get('id') else f"github_{github_data.get('username', secrets.token_hex(8))}"
             
             db_user = get_or_create_user(
                 user_id=user_id,
