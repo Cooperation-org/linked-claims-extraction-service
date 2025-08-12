@@ -155,13 +155,9 @@ def upload_file():
         
         logger.info(f"Document {document.id} uploaded by user {current_user.id}, processing task {task.id} queued")
         
-        return jsonify({
-            'success': True,
-            'document_id': document.id,
-            'task_id': task.id,
-            'message': 'File uploaded successfully. Processing will begin shortly.',
-            'redirect': url_for('document_status', document_id=document.id)
-        })
+        # Flash success message and redirect
+        flash('File uploaded successfully. Processing will begin shortly.', 'success')
+        return redirect(url_for('document_status', document_id=document.id))
         
     except Exception as e:
         logger.error(f"Error uploading file: {str(e)}")
@@ -257,6 +253,25 @@ def reprocess_document(document_id):
         'success': True,
         'task_id': task.id,
         'message': 'Document queued for reprocessing'
+    })
+
+@app.route('/api/jobs')
+@login_required  
+def api_jobs_status():
+    """Quick endpoint to see all processing jobs"""
+    jobs = ProcessingJob.query.order_by(ProcessingJob.created_at.desc()).limit(20).all()
+    return jsonify({
+        'jobs': [
+            {
+                'id': job.id,
+                'document_id': job.document_id,
+                'status': job.status,
+                'job_type': job.job_type,
+                'created': job.created_at.isoformat() if job.created_at else None,
+                'updated': job.updated_at.isoformat() if job.updated_at else None,
+                'error': job.error_message
+            } for job in jobs
+        ]
     })
 
 @app.route('/api/document/<document_id>/status')
