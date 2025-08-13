@@ -259,7 +259,7 @@ def reprocess_document(document_id):
 @login_required  
 def api_jobs_status():
     """Quick endpoint to see all processing jobs"""
-    jobs = ProcessingJob.query.order_by(ProcessingJob.created_at.desc()).limit(20).all()
+    jobs = ProcessingJob.query.order_by(ProcessingJob.started_at.desc().nullslast()).limit(20).all()
     return jsonify({
         'jobs': [
             {
@@ -267,8 +267,8 @@ def api_jobs_status():
                 'document_id': job.document_id,
                 'status': job.status,
                 'job_type': job.job_type,
-                'created': job.created_at.isoformat() if job.created_at else None,
-                'updated': job.updated_at.isoformat() if job.updated_at else None,
+                'started_at': job.started_at.isoformat() if job.started_at else None,
+                'completed_at': job.completed_at.isoformat() if job.completed_at else None,
                 'error': job.error_message
             } for job in jobs
         ]
