@@ -78,7 +78,7 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
     
     with flask_app.app_context():
         from models import db, Document, DraftClaim, ProcessingJob
-        from pdf_parser import SimpleDocumentManager
+        from pdf_parser.simple_document_manager import SimpleDocumentManager
         from claim_extractor import ClaimExtractor
         
         # Get document
