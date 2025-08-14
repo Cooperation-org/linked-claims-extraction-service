@@ -418,6 +418,87 @@ def publish_claims(document_id):
         'message': f'Publishing {approved_count} claims to LinkedTrust'
     })
 
+@app.route('/document/<document_id>/delete', methods=['POST'])
+@login_required
+def delete_document(document_id):
+    """Delete a document and its draft claims from local database only"""
+    try:
+        # Get the document - ensure user owns it
+        document = Document.query.filter_by(id=document_id, user_id=current_user.id).first()
+        
+        if not document:
+            return jsonify({'success': False, 'error': 'Document not found or access denied'}), 404
+        
+        # Delete all draft claims associated with this document
+        DraftClaim.query.filter_by(document_id=document_id).delete()
+        
+        # Delete any processing jobs
+        ProcessingJob.query.filter_by(document_id=document_id).delete()
+        
+        # Delete the document file from disk if it exists
+        if document.file_path and os.path.exists(document.file_path):
+            try:
+                os.remove(document.file_path)
+            except Exception as e:
+                logger.warning(f"Could not delete file {document.file_path}: {e}")
+        
+        # Delete the document record
+        db.session.delete(document)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Document deleted successfully'})
+    
+    except Exception as e:
+        logger.error(f"Error deleting document {document_id}: {e}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/document/<document_id>/restart', methods=['POST'])
+@login_required
+def restart_extraction(document_id):
+    """Restart the extraction process for a document"""
+    try:
+        # Get the document - ensure user owns it
+        document = Document.query.filter_by(id=document_id, user_id=current_user.id).first()
+        
+        if not document:
+            return jsonify({'success': False, 'error': 'Document not found or access denied'}), 404
+        
+        # Delete existing draft claims (but not published ones)
+        DraftClaim.query.filter_by(document_id=document_id, status='draft').delete()
+        
+        # Reset document status
+        document.status = 'pending'
+        document.error_message = None
+        document.processing_started_at = None
+        document.processing_completed_at = None
+        db.session.commit()
+        
+        # Queue extraction task
+        from tasks import extract_claims_from_document
+        task = extract_claims_from_document.delay(document_id)
+        
+        # Create processing job record
+        job = ProcessingJob(
+            id=task.id,
+            document_id=document_id,
+            job_type='extract_claims',
+            status='pending'
+        )
+        db.session.add(job)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'task_id': task.id,
+            'message': 'Extraction restarted successfully'
+        })
+    
+    except Exception as e:
+        logger.error(f"Error restarting extraction for document {document_id}: {e}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/published-claims')
 @login_required
 def get_published_claims():
