@@ -173,14 +173,17 @@
         group: root
         mode: '0644'
       register: supervisor_celery
+      tags: update
 
     - name: Reread supervisor configs
       command: supervisorctl reread
       when: supervisor_flask.changed or supervisor_celery.changed
+      tags: update
       
     - name: Update supervisor
       command: supervisorctl update
       when: supervisor_flask.changed or supervisor_celery.changed
+      tags: update
 
     - name: Restart Flask app
       supervisorctl:
@@ -192,6 +195,26 @@
       supervisorctl:
         name: "{{ app_name }}-celery"
         state: restarted
+      tags: update
+
+    - name: Wait for services to start
+      pause:
+        seconds: 3
+      tags: update
+
+    - name: Check service status after restart
+      shell: |
+        echo "=== Service Status ===" 
+        supervisorctl status | grep -E "^{{ app_name }}(-celery)?\s"
+        echo ""
+        echo "=== Recent Celery Log ==="
+        tail -3 /var/log/supervisor/{{ app_name }}-celery.log || true
+      register: service_check
+      tags: update
+
+    - name: Display service status
+      debug:
+        msg: "{{ service_check.stdout_lines }}"
       tags: update
 
     # ===== SSL CERTIFICATE =====

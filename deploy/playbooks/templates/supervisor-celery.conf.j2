@@ -13,6 +13,7 @@ redirect_stderr=true
 stdout_logfile=/var/log/supervisor/{{ app_name }}-celery.log
 stderr_logfile=/var/log/supervisor/{{ app_name }}-celery_error.log
 environment=PATH="{{ app_dir }}/venv/bin:%(ENV_PATH)s",
+            PYTHONPATH="{{ app_dir }}/src:{{ app_dir }}",
             DATABASE_URL="postgresql://{{ db_user | default('linkedclaims') }}:{{ db_password }}@localhost/{{ db_name | default('linkedclaims_extraction') }}",
             REDIS_HOST="{{ redis_host | default('localhost') }}",
             REDIS_PORT="{{ redis_port | default('6379') }}",
