@@ -107,8 +107,18 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
         db.session.commit()
         
         try:
+            # Check if API key is available
+            import os
+            api_key = os.getenv('ANTHROPIC_API_KEY')
+            if not api_key:
+                logger.error("ANTHROPIC_API_KEY environment variable not set!")
+                raise ValueError("ANTHROPIC_API_KEY not configured")
+            else:
+                logger.info("ANTHROPIC_API_KEY is configured")
+            
             # Initialize extractor
             extractor = ClaimExtractor()
+            logger.info("ClaimExtractor initialized successfully")
             
             # Get total page count
             with fitz.open(doc.file_path) as pdf:
@@ -135,12 +145,33 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
                 # Extract claims from each page
                 for page_num, text in batch_texts:
                     if not text or len(text) < 50:  # Skip empty or very short pages
+                        logger.info(f"Skipping page {page_num} - too short ({len(text)} chars)")
                         continue
                     
                     try:
-                        # Extract claims from page text
-                        page_claims = extractor.extract_claims(text)
+                        # Log what we're sending to the API
+                        logger.info(f"Extracting claims from page {page_num} with {len(text)} characters")
+                        logger.debug(f"Page {page_num} text preview: {text[:200]}...")
                         
+                        # Extract claims from page text
+                        try:
+                            page_claims = extractor.extract_claims(text)
+                        except Exception as api_error:
+                            logger.error(f"API call failed for page {page_num}: {api_error}")
+                            logger.error(f"Error type: {type(api_error).__name__}")
+                            logger.error(f"Error details: {str(api_error)}")
+                            page_claims = []
+                        
+                        # Log the API response
+                        logger.info(f"Page {page_num} returned {len(page_claims) if page_claims else 0} claims")
+                        if page_claims:
+                            logger.debug(f"Claims from page {page_num}: {page_claims}")
+                        else:
+                            logger.warning(f"No claims extracted from page {page_num}")
+                        
+                        if not page_claims:
+                            continue
+                            
                         for claim_data in page_claims:
                             # Extract subject, statement, object from claim data
                             subject = claim_data.get('subject', '')
