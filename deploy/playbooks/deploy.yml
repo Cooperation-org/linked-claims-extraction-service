@@ -173,17 +173,14 @@
         group: root
         mode: '0644'
       register: supervisor_celery
-      tags: update
 
     - name: Reread supervisor configs
       command: supervisorctl reread
       when: supervisor_flask.changed or supervisor_celery.changed
-      tags: update
       
     - name: Update supervisor
       command: supervisorctl update
       when: supervisor_flask.changed or supervisor_celery.changed
-      tags: update
 
     - name: Restart Flask app
       supervisorctl:
