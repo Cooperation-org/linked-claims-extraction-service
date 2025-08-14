@@ -300,12 +300,6 @@
       changed_when: false
       failed_when: false
 
-    - name: Test certificate renewal
-      command: certbot renew --dry-run --non-interactive
-      register: renewal_test
-      changed_when: false
-      failed_when: false
-      ignore_errors: yes
 
     - name: Display deployment status
       debug:
