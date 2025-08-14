@@ -4,7 +4,7 @@ from claim_extractor import ClaimExtractor
 import time
 from dotenv import load_dotenv
 import argparse
-from pdf_parser import DocumentManager
+from pdf_parser.document_manager import DocumentManager
 
 
 load_dotenv()
