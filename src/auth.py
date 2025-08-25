@@ -70,7 +70,11 @@ def get_or_create_user(user_id, email=None, name=None, provider='linkedtrust',
     """Get or create user in database"""
     from models import User, db
     
+    # Try to find user by ID first, then by email
     db_user = db.session.get(User, user_id)
+    if not db_user and email:
+        db_user = User.query.filter_by(email=email).first()
+    
     if not db_user:
         # Create new user
         db_user = User(
