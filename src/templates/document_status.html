@@ -489,44 +489,6 @@
                 } else {
                     alert('Publishing failed: ' + (publishData.error || 'Unknown error'));
                 }
-                let publishedCount = 0;
-                
-                // Publish each approved claim
-                for (const claim of approvedClaims) {
-                    const claimPayload = {
-                        subject: claim.subject,
-                        statement: claim.statement || claim.claim_data?.statement,
-                        object: claim.object,
-                        sourceURI: document.querySelector('#pdf-link')?.href || window.location.href,
-                        effectiveDate: new Date().toISOString(),
-                        howKnown: claim.claim_data?.howKnown || 'DOCUMENT',
-                        confidence: claim.claim_data?.confidence,
-                        issuerId: linkedTrustEmail,
-                        issuerIdType: 'EMAIL'
-                    };
-                    
-                    const publishResponse = await fetch('https://dev.linkedtrust.us/api/claims', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${authToken}`
-                        },
-                        body: JSON.stringify(claimPayload)
-                    });
-                    
-                    if (publishResponse.ok) {
-                        publishedCount++;
-                        // Update local claim status
-                        await fetch(`/api/claims/${claim.id}/status`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ status: 'published' })
-                        });
-                    }
-                }
-                
-                alert(`Published ${publishedCount} of ${approvedClaims.length} claims to LinkedTrust`);
-                setTimeout(() => location.reload(), 2000);
                 
             } catch (error) {
                 alert('Error: ' + error.message);

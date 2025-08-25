@@ -423,44 +423,71 @@ def update_claim_status(claim_id):
 @app.route('/api/document/<document_id>/publish', methods=['POST'])
 @login_required
 def publish_claims(document_id):
-    """Publish approved claims to LinkedTrust"""
+    """Publish approved claims to LinkedTrust using user's stored tokens"""
     document = Document.query.filter_by(id=document_id, user_id=current_user.id).first()
     
     if not document:
         return jsonify({'error': 'Document not found or access denied'}), 404
     
-    # Get specific claim IDs if provided, otherwise all approved
-    claim_ids = request.json.get('claim_ids') if request.json else None
+    # Get approved claims
+    approved_claims = DraftClaim.query.filter_by(document_id=document_id, status='approved').all()
     
-    # Check if there are approved claims
-    query = DraftClaim.query.filter_by(document_id=document_id, status='approved')
-    if claim_ids:
-        query = query.filter(DraftClaim.id.in_(claim_ids))
-    
-    approved_count = query.count()
-    
-    if approved_count == 0:
+    if not approved_claims:
         return jsonify({'error': 'No approved claims to publish'}), 400
     
-    # Queue publishing task
-    from tasks import publish_claims_to_linkedtrust
-    task = publish_claims_to_linkedtrust.delay(document_id, claim_ids)
-    
-    # Create processing job record
-    job = ProcessingJob(
-        id=task.id,
-        document_id=document_id,
-        job_type='publish_claims',
-        status='pending'
-    )
-    db.session.add(job)
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'task_id': task.id,
-        'message': f'Publishing {approved_count} claims to LinkedTrust'
-    })
+    try:
+        # Get user's LinkedTrust client with stored tokens
+        client = current_user.get_linkedtrust_client()
+        
+        published_count = 0
+        failed_count = 0
+        
+        for claim in approved_claims:
+            try:
+                # Prepare claim payload
+                claim_payload = {
+                    'subject': claim.subject,
+                    'statement': claim.statement,
+                    'object': claim.object,
+                    'sourceURI': document.public_url or f"{request.url_root}document/{document_id}",
+                    'effectiveDate': document.effective_date.isoformat() if document.effective_date else datetime.utcnow().isoformat(),
+                    'howKnown': claim.claim_data.get('howKnown', 'DOCUMENT') if claim.claim_data else 'DOCUMENT',
+                    'confidence': claim.claim_data.get('confidence') if claim.claim_data else None,
+                    'issuerId': current_user.email,
+                    'issuerIdType': 'EMAIL'
+                }
+                
+                # Remove None values
+                claim_payload = {k: v for k, v in claim_payload.items() if v is not None}
+                
+                # Publish to LinkedTrust
+                result = client.create_claim(claim_payload)
+                
+                if result.get('success', True):  # Assume success if no explicit success field
+                    claim.status = 'published'
+                    claim.published_at = datetime.utcnow()
+                    claim.linkedtrust_response = result
+                    published_count += 1
+                else:
+                    logger.error(f"Failed to publish claim {claim.id}: {result}")
+                    failed_count += 1
+                    
+            except Exception as e:
+                logger.error(f"Error publishing claim {claim.id}: {e}")
+                failed_count += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Published {published_count} claims' + (f', {failed_count} failed' if failed_count > 0 else ''),
+            'published': published_count,
+            'failed': failed_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Error publishing claims: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/document/<document_id>/delete', methods=['POST'])
 @login_required

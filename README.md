@@ -52,7 +52,9 @@ The service will start on http://localhost:5050
 ### LinkedTrust Account
 You need a LinkedTrust account to publish claims. **Register at [dev.linkedtrust.us](https://dev.linkedtrust.us)** for testing, or [live.linkedtrust.us](https://live.linkedtrust.us) for production.
 
-**Publishing Flow:** When you publish claims, the frontend will prompt for your LinkedTrust credentials and publish directly to the LinkedTrust API under your user account (not a service account).
+**Publishing Flow:** When you publish claims, the system uses your stored OAuth tokens from login to publish directly to LinkedTrust under your user account.
+
+⚠️ **IMPORTANT:** Never prompt users for credentials they already provided during login! The system stores OAuth tokens - use them.
 
 ### Environment Setup
 Edit `.env` file with your API keys:
