@@ -6,13 +6,20 @@ Web service for extracting structured claims from PDF documents and pushing them
 
 ## Architecture Overview
 
-### Important: Data Storage Philosophy
+### Publishing Architecture
 
-This service uses a **hybrid storage approach**:
+This service uses a **direct frontend publishing approach**:
+
+- **Local Service**: Extracts claims from PDFs, stores draft claims for review
+- **Frontend Publishing**: Users authenticate directly with LinkedTrust and publish claims under their own account
+- **No Service-Side Credentials**: The service never stores or uses LinkedTrust credentials
+- **User-Controlled Publishing**: Each user publishes claims using their own LinkedTrust identity
+
+### Data Storage Philosophy
 
 - **Local PostgreSQL Database**: Stores ONLY draft claims, uploaded PDFs metadata, and processing status
-- **Decentralized Backend (live.linkedtrust.us)**: Stores ALL published claims and validations
-- **Key Point**: Once claims are published to LinkedTrust, they are NO LONGER stored locally. All queries for published claims use the LinkedTrust API.
+- **LinkedTrust Backend**: Stores ALL published claims and validations under user accounts  
+- **Key Point**: Claims are published directly by users, not by the service
 
 For detailed architecture and purpose, see [PURPOSE.md](PURPOSE.md)
 
@@ -43,36 +50,38 @@ The service will start on http://localhost:5050
 ## Configuration
 
 ### LinkedTrust Account
-You need a LinkedTrust backend account to publish claims. **Register at [dev.linkedtrust.us](https://dev.linkedtrust.us)** - this is the backend API the service uses directly.
+You need a LinkedTrust account to publish claims. **Register at [dev.linkedtrust.us](https://dev.linkedtrust.us)** for testing, or [live.linkedtrust.us](https://live.linkedtrust.us) for production.
 
-**Note:** This service currently uses the `dev.linkedtrust.us` backend for testing. When ready for production, update `LINKEDTRUST_BASE_URL` to `https://live.linkedtrust.us` and register there instead.
+**Publishing Flow:** When you publish claims, the frontend will prompt for your LinkedTrust credentials and publish directly to the LinkedTrust API under your user account (not a service account).
 
 ### Environment Setup
-Edit `.env` file with your credentials:
+Edit `.env` file with your API keys:
 
 ```env
-# LinkedTrust API credentials (register at dev.linkedtrust.us)
-LINKEDTRUST_EMAIL=your-actual-email@gmail.com
-LINKEDTRUST_PASSWORD=your-password
-LINKEDTRUST_BASE_URL=https://dev.linkedtrust.us
-
-# AI API keys (need at least one)
+# AI API keys (required for claim extraction)
 ANTHROPIC_API_KEY=your-anthropic-key
-# OPENAI_API_KEY=your-openai-key  # Optional
+# OPENAI_API_KEY=your-openai-key  # Optional alternative
 
 # Flask configuration
 FLASK_SECRET_KEY=any-random-string-here
 FLASK_PORT=5050
 FLASK_DEBUG=False
+
+# LinkedTrust backend URL (dev for testing, live for production)
+LINKEDTRUST_BASE_URL=https://dev.linkedtrust.us
 ```
+
+**Note:** No LinkedTrust credentials needed in `.env` - users enter their own credentials when publishing.
 
 ## Usage
 
 1. Start the service with `python run.py`
 2. Open http://localhost:5050 in your browser
 3. Upload a PDF file
-4. Review the extracted claims
-5. Click "Publish to LinkedTrust" to send claims to the API
+4. Review and approve the extracted claims
+5. Click "Publish to LinkedTrust" 
+6. Enter your LinkedTrust credentials when prompted
+7. Claims are published directly to LinkedTrust under your user account
 
 ## Troubleshooting
 

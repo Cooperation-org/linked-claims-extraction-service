@@ -452,15 +452,6 @@
                 return;
             }
             
-            // Get user's LinkedTrust auth credentials
-            const linkedTrustEmail = prompt('Enter your LinkedTrust email:');
-            const linkedTrustPassword = prompt('Enter your LinkedTrust password:');
-            
-            if (!linkedTrustEmail || !linkedTrustPassword) {
-                alert('LinkedTrust credentials required');
-                return;
-            }
-            
             try {
                 // Get approved claims from our service
                 const claimsResponse = await fetch(`/api/document/${documentId}/claims`);
@@ -472,25 +463,32 @@
                     return;
                 }
                 
-                // First authenticate with LinkedTrust
-                const authResponse = await fetch('https://dev.linkedtrust.us/api/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        email: linkedTrustEmail,
-                        password: linkedTrustPassword
-                    })
-                });
+                // Get user's auth token from their session
+                const userResponse = await fetch('/auth/user');
+                const userData = await userResponse.json();
                 
-                const authData = await authResponse.json();
-                if (!authResponse.ok) {
-                    alert('LinkedTrust authentication failed: ' + (authData.error || 'Unknown error'));
+                if (!userData.authenticated) {
+                    alert('Please log in first');
+                    window.location.href = '/auth/login';
                     return;
                 }
                 
-                const authToken = authData.accessToken;
+                // Use backend endpoint to publish with user's stored tokens
+                const publishResponse = await fetch(`/api/document/${documentId}/publish`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const publishData = await publishResponse.json();
+                
+                if (publishResponse.ok) {
+                    alert(`Successfully published claims to LinkedTrust!`);
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    alert('Publishing failed: ' + (publishData.error || 'Unknown error'));
+                }
                 let publishedCount = 0;
                 
                 // Publish each approved claim

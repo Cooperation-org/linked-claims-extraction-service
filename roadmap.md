@@ -38,8 +38,16 @@ This service follows the Linked Claims principles as defined by:
 1. **Upload Stage**: Immediate file storage with user feedback
 2. **Processing Stage**: Background extraction using Celery workers
 3. **Draft Stage**: Local storage of extracted claims pending user review
-4. **Publishing Stage**: User-approved claims sent to LinkedTrust
+4. **Publishing Stage**: Frontend prompts user for LinkedTrust credentials and publishes directly under user's account
 5. **Validation Stage**: Guide users to request validations via LinkedTrust API
+
+### Publishing Architecture (Updated)
+
+**Direct Frontend Publishing Approach:**
+- Users authenticate directly with LinkedTrust (no service-side credentials)
+- Claims published under user's own LinkedTrust identity
+- Frontend handles authentication and publishing via LinkedTrust API
+- Service never stores or uses LinkedTrust credentials
 
 ### Technology Stack
 
