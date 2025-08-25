@@ -38,8 +38,16 @@ This service follows the Linked Claims principles as defined by:
 1. **Upload Stage**: Immediate file storage with user feedback
 2. **Processing Stage**: Background extraction using Celery workers
 3. **Draft Stage**: Local storage of extracted claims pending user review
-4. **Publishing Stage**: User-approved claims sent to LinkedTrust
+4. **Publishing Stage**: Frontend prompts user for LinkedTrust credentials and publishes directly under user's account
 5. **Validation Stage**: Guide users to request validations via LinkedTrust API
+
+### Publishing Architecture (Updated)
+
+**Direct Frontend Publishing Approach:**
+- Users authenticate directly with LinkedTrust (no service-side credentials)
+- Claims published under user's own LinkedTrust identity
+- Frontend handles authentication and publishing via LinkedTrust API
+- Service never stores or uses LinkedTrust credentials
 
 ### Technology Stack
 
@@ -59,5 +67,7 @@ When working on this codebase, remember:
 1. Never store published claims locally - always query LinkedTrust
 2. The local database is for tracking documents, draft or staged claims for possible publication, and may be a VIEW of the real state that can update
 3. All validation flows must go through the decentralized backend
-4. User authentication (OAuth) will be added in future iterations
+4. **NEVER prompt users for credentials they already provided during login** - use stored OAuth tokens!
 5. Prioritize user feedback and transparency in the extraction process
+
+⚠️ **READ BEFORE CODING:** See [COMMON_MISTAKES.md](COMMON_MISTAKES.md) to avoid stupid mistakes!
