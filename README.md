@@ -42,11 +42,17 @@ The service will start on http://localhost:5050
 
 ## Configuration
 
+### LinkedTrust Account
+You need a LinkedTrust backend account to publish claims. **Register at [dev.linkedtrust.us](https://dev.linkedtrust.us)** - this is the backend API the service uses directly.
+
+**Note:** This service currently uses the `dev.linkedtrust.us` backend for testing. When ready for production, update `LINKEDTRUST_BASE_URL` to `https://live.linkedtrust.us` and register there instead.
+
+### Environment Setup
 Edit `.env` file with your credentials:
 
 ```env
-# LinkedTrust API credentials
-LINKEDTRUST_EMAIL=your-email@example.com
+# LinkedTrust API credentials (register at dev.linkedtrust.us)
+LINKEDTRUST_EMAIL=your-actual-email@gmail.com
 LINKEDTRUST_PASSWORD=your-password
 LINKEDTRUST_BASE_URL=https://dev.linkedtrust.us
 
