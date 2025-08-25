@@ -94,3 +94,8 @@ LINKEDTRUST_BASE_URL=https://dev.linkedtrust.us
 ## Production Deployment
 
 See [pdf_parser_DEPLOYMENT_GUIDE.MD](pdf_parser_DEPLOYMENT_GUIDE.MD) for production deployment.
+
+## Developer Notes
+
+⚠️ **Don't re-prompt for credentials** - User already logged in with OAuth, use stored tokens via `current_user.get_linkedtrust_client()`  
+⚠️ **Don't use fake URLs in claims** - Use real Wikipedia/LinkedIn URLs, never example.com
