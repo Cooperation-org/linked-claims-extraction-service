@@ -41,6 +41,9 @@ class TestSyncProcessor(unittest.TestCase):
         ]
         mock_extractor_class.return_value = mock_extractor
         
+        # Replace the processor's extractor with our mock
+        self.processor.extractor = mock_extractor
+        
         # Test
         result = self.processor.extract_claims_from_document("test.pdf")
         
