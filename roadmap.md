@@ -67,7 +67,5 @@ When working on this codebase, remember:
 1. Never store published claims locally - always query LinkedTrust
 2. The local database is for tracking documents, draft or staged claims for possible publication, and may be a VIEW of the real state that can update
 3. All validation flows must go through the decentralized backend
-4. **NEVER prompt users for credentials they already provided during login** - use stored OAuth tokens!
+4. User authentication uses OAuth with stored tokens
 5. Prioritize user feedback and transparency in the extraction process
-
-⚠️ **READ BEFORE CODING:** See [COMMON_MISTAKES.md](COMMON_MISTAKES.md) to avoid stupid mistakes!

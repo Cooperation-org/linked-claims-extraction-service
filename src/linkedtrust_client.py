@@ -15,7 +15,7 @@ class LinkedTrustClient:
     """Client for interacting with LinkedTrust API"""
     
     def __init__(self, access_token: Optional[str] = None):
-        self.base_url = os.getenv('LINKEDTRUST_BASE_URL', 'https://live.linkedtrust.us')
+        self.base_url = os.getenv('LINKEDTRUST_BASE_URL', 'https://dev.linkedtrust.us')
         self.access_token = access_token
         self.refresh_token = None
         
