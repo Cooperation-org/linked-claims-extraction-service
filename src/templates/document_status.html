@@ -452,19 +452,84 @@
                 return;
             }
             
+            // Get user's LinkedTrust auth credentials
+            const linkedTrustEmail = prompt('Enter your LinkedTrust email:');
+            const linkedTrustPassword = prompt('Enter your LinkedTrust password:');
+            
+            if (!linkedTrustEmail || !linkedTrustPassword) {
+                alert('LinkedTrust credentials required');
+                return;
+            }
+            
             try {
-                const response = await fetch(`/api/document/${documentId}/publish`, {
-                    method: 'POST'
+                // Get approved claims from our service
+                const claimsResponse = await fetch(`/api/document/${documentId}/claims`);
+                const claimsData = await claimsResponse.json();
+                const approvedClaims = claimsData.claims.filter(claim => claim.status === 'approved');
+                
+                if (approvedClaims.length === 0) {
+                    alert('No approved claims to publish');
+                    return;
+                }
+                
+                // First authenticate with LinkedTrust
+                const authResponse = await fetch('https://dev.linkedtrust.us/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: linkedTrustEmail,
+                        password: linkedTrustPassword
+                    })
                 });
                 
-                const data = await response.json();
-                
-                if (response.ok && data.success) {
-                    alert(data.message);
-                    setTimeout(() => location.reload(), 2000);
-                } else {
-                    alert(data.error || 'Failed to publish claims');
+                const authData = await authResponse.json();
+                if (!authResponse.ok) {
+                    alert('LinkedTrust authentication failed: ' + (authData.error || 'Unknown error'));
+                    return;
                 }
+                
+                const authToken = authData.accessToken;
+                let publishedCount = 0;
+                
+                // Publish each approved claim
+                for (const claim of approvedClaims) {
+                    const claimPayload = {
+                        subject: claim.subject,
+                        statement: claim.statement || claim.claim_data?.statement,
+                        object: claim.object,
+                        sourceURI: document.querySelector('#pdf-link')?.href || window.location.href,
+                        effectiveDate: new Date().toISOString(),
+                        howKnown: claim.claim_data?.howKnown || 'DOCUMENT',
+                        confidence: claim.claim_data?.confidence,
+                        issuerId: linkedTrustEmail,
+                        issuerIdType: 'EMAIL'
+                    };
+                    
+                    const publishResponse = await fetch('https://dev.linkedtrust.us/api/claims', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify(claimPayload)
+                    });
+                    
+                    if (publishResponse.ok) {
+                        publishedCount++;
+                        // Update local claim status
+                        await fetch(`/api/claims/${claim.id}/status`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: 'published' })
+                        });
+                    }
+                }
+                
+                alert(`Published ${publishedCount} of ${approvedClaims.length} claims to LinkedTrust`);
+                setTimeout(() => location.reload(), 2000);
+                
             } catch (error) {
                 alert('Error: ' + error.message);
             }

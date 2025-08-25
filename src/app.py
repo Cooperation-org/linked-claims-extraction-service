@@ -376,6 +376,50 @@ def reject_claim(claim_id):
         'message': 'Claim rejected'
     })
 
+@app.route('/api/document/<document_id>/claims', methods=['GET'])
+@login_required
+def get_document_claims(document_id):
+    """Get all claims for a document"""
+    document = Document.query.filter_by(id=document_id, user_id=current_user.id).first()
+    
+    if not document:
+        return jsonify({'error': 'Document not found or access denied'}), 404
+    
+    claims = []
+    for claim in document.draft_claims:
+        claims.append({
+            'id': claim.id,
+            'subject': claim.subject,
+            'statement': claim.statement,
+            'object': claim.object,
+            'status': claim.status,
+            'claim_data': claim.claim_data,
+            'page_number': claim.page_number
+        })
+    
+    return jsonify({'claims': claims})
+
+@app.route('/api/claims/<int:claim_id>/status', methods=['PATCH'])
+@login_required
+def update_claim_status(claim_id):
+    """Update claim status"""
+    claim = DraftClaim.query.get(claim_id)
+    
+    if not claim:
+        return jsonify({'error': 'Claim not found'}), 404
+    
+    # Check document ownership
+    document = Document.query.filter_by(id=claim.document_id, user_id=current_user.id).first()
+    if not document:
+        return jsonify({'error': 'Access denied'}), 403
+    
+    data = request.get_json()
+    if 'status' in data:
+        claim.status = data['status']
+        db.session.commit()
+    
+    return jsonify({'success': True})
+
 @app.route('/api/document/<document_id>/publish', methods=['POST'])
 @login_required
 def publish_claims(document_id):
