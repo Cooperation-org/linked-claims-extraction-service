@@ -1,54 +1,133 @@
 {% extends "base.html" %}
 
-{% block title %}Upload File - Claim Extractor{% endblock %}
+{% block title %}Upload Impact Report - LinkedTrust Claims{% endblock %}
+
+{% block page_title %}Upload Impact Report{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-8">
         <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">
-                    <i class="fas fa-upload me-2"></i>
-                    Upload PDF File
+            <div class="card-header">
+                <h5 class="mb-0" style="color: var(--primary-color);">
+                    <i class="fas fa-file-pdf me-2"></i>
+                    Upload Your Impact Report
                 </h5>
             </div>
             <div class="card-body">
+                <div class="alert alert-info mb-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Upload PDF reports containing grant outcomes, impact metrics, or program results. 
+                    Our AI will extract verifiable claims for transparent validation.
+                </div>
+
                 <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
-                    <div class="mb-3">
-                        <label for="file" class="form-label">Choose PDF File</label>
-                        <input type="file" class="form-control" id="file" name="file" accept=".pdf" required>
-                        <div class="form-text">Only PDF files are allowed. Maximum file size: 80MB</div>
+                    <div class="mb-4">
+                        <label for="file" class="form-label fw-bold">Select PDF Report</label>
+                        <input type="file" class="form-control form-control-lg" id="file" name="file" accept=".pdf" required>
+                        <div class="form-text">Accepted: Grant reports, impact assessments, program evaluations (PDF only, max 80MB)</div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="public_url" class="form-label">URL of this source</label>
-                        <input type="url" class="form-control" id="public_url" name="public_url" placeholder="https://example.com/document.pdf" required>
-                        <div class="form-text">URL is required for sourcing - this identifies where the document came from</div>
+                    <div class="mb-4">
+                        <label for="public_url" class="form-label fw-bold">Public URL of Document</label>
+                        <input type="url" class="form-control" id="public_url" name="public_url" 
+                               placeholder="https://yourorg.org/reports/2024-impact-report.pdf" required>
+                        <div class="form-text">Where can this report be publicly accessed? This creates a verifiable source link.</div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="effective_date" class="form-label">Effective Date</label>
+                    <div class="mb-4">
+                        <label for="effective_date" class="form-label fw-bold">Report Date</label>
                         <input type="date" class="form-control" id="effective_date" name="effective_date" required>
-                        <div class="form-text">When this document or its claims become effective</div>
+                        <div class="form-text">When was this report published or when do the outcomes take effect?</div>
                     </div>
                     
-                    <button type="submit" class="btn btn-primary btn-lg">
-                        <i class="fas fa-upload me-2"></i>
-                        Upload and Extract Claims
-                    </button>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-rocket me-2"></i>
+                            Extract Claims from Report
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
         
-        <div class="mt-4">
-            <h6>Instructions:</h6>
-            <ol>
-                <li>Select a PDF file containing claims or statements</li>
-                <li>Click "Upload and Extract Claims" to process the file</li>
-                <li>View extracted claims in the "View Claims" section</li>
-                <li>Publish claims to LinkedTrust when ready</li>
-            </ol>
+        <div class="card mt-4">
+            <div class="card-body">
+                <h6 class="text-primary mb-3">
+                    <i class="fas fa-question-circle me-2"></i>
+                    How It Works
+                </h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="d-flex mb-3">
+                            <div class="flex-shrink-0">
+                                <div class="rounded-circle bg-light text-primary p-2 me-3" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                    1
+                                </div>
+                            </div>
+                            <div>
+                                <strong>Upload Report</strong><br>
+                                <small class="text-muted">Select your PDF impact report or grant outcome document</small>
+                            </div>
+                        </div>
+                        <div class="d-flex mb-3">
+                            <div class="flex-shrink-0">
+                                <div class="rounded-circle bg-light text-primary p-2 me-3" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                    2
+                                </div>
+                            </div>
+                            <div>
+                                <strong>AI Extracts Claims</strong><br>
+                                <small class="text-muted">Our AI identifies and structures claims about impact and outcomes</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex mb-3">
+                            <div class="flex-shrink-0">
+                                <div class="rounded-circle bg-light text-primary p-2 me-3" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                    3
+                                </div>
+                            </div>
+                            <div>
+                                <strong>Review & Publish</strong><br>
+                                <small class="text-muted">Review extracted claims and publish to LinkedTrust network</small>
+                            </div>
+                        </div>
+                        <div class="d-flex mb-3">
+                            <div class="flex-shrink-0">
+                                <div class="rounded-circle bg-light text-primary p-2 me-3" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                    4
+                                </div>
+                            </div>
+                            <div>
+                                <strong>Enable Validation</strong><br>
+                                <small class="text-muted">Share with beneficiaries and partners for verification</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4 p-3 bg-light rounded">
+                    <p class="mb-0 small">
+                        <strong>Example Reports:</strong> Annual impact reports, grant completion reports, 
+                        program evaluation documents, beneficiary outcome assessments, service delivery reports
+                    </p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<style>
+/* Additional styling for this page */
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(0, 227, 165, 0.25);
+}
+
+.card {
+    border: 1px solid rgba(0, 227, 165, 0.1);
+}
+</style>
 {% endblock %}

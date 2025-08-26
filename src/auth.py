@@ -114,7 +114,8 @@ def create_auth_routes(app):
             github_client_id = app.config.get('GITHUB_CLIENT_ID')
             
             # Return login page with template variables
-            return render_template_string('''
+            from flask import render_template
+            return render_template('login.html', google_client_id=google_client_id, github_client_id=github_client_id)
             <!DOCTYPE html>
             <html>
             <head>
