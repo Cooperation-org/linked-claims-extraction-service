@@ -59,9 +59,29 @@
             <div class="border-start border-3 {% if claim.get('status') == 'published' %}border-success{% elif claim.get('status') == 'failed' %}border-danger{% else %}border-info{% endif %} ps-3 mb-3" id="claim-{{ claim_id }}-{{ claim.get('claim_index', loop.index0) }}">
                 <div class="d-flex justify-content-between align-items-start">
                     <div class="flex-grow-1">
-                        <strong>Subject:</strong> {{ claim.get('subject', 'N/A') }}<br>
+                        <strong>Subject:</strong> 
+                        <span id="subject-display-{{ claim_id }}-{{ claim.get('claim_index', loop.index0) }}">{{ claim.get('subject', 'N/A') }}</span>
+                        {% if claim.get('urls_need_verification') and claim.get('subject_suggested') %}
+                        <span class="badge bg-warning ms-2" title="This URL was AI-generated and needs verification">
+                            <i class="fas fa-exclamation-triangle me-1"></i>Suggested URL
+                        </span>
+                        <button class="btn btn-sm btn-outline-primary ms-2" onclick="showUrlEditor('{{ claim_id }}', {{ claim.get('claim_index', loop.index0) }}, 'subject', '{{ claim.get('subject', '') }}', '{{ claim.get('subject_entity_type', '') }}')">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        {% endif %}
+                        <br>
                         <strong>Statement:</strong> {{ claim.get('statement', claim.get('description', 'N/A')) }}<br>
-                        <strong>Object:</strong> {{ claim.get('object', claim.get('description', 'N/A')) }}<br>
+                        <strong>Object:</strong> 
+                        <span id="object-display-{{ claim_id }}-{{ claim.get('claim_index', loop.index0) }}">{{ claim.get('object', claim.get('description', 'N/A')) }}</span>
+                        {% if claim.get('urls_need_verification') and claim.get('object_suggested') %}
+                        <span class="badge bg-warning ms-2" title="This URL was AI-generated and needs verification">
+                            <i class="fas fa-exclamation-triangle me-1"></i>Suggested URL
+                        </span>
+                        <button class="btn btn-sm btn-outline-primary ms-2" onclick="showUrlEditor('{{ claim_id }}', {{ claim.get('claim_index', loop.index0) }}, 'object', '{{ claim.get('object', '') }}', '{{ claim.get('object_entity_type', '') }}')">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        {% endif %}
+                        <br>
                         <strong>Aspect:</strong> {{ claim.get('aspect', 'N/A') }}<br>
                         <strong>How Known:</strong> {{ claim.get('howKnown', 'N/A') }}
                         
@@ -133,10 +153,198 @@
     </a>
 </div>
 {% endfor %}
+
+<!-- URL Editor Modal -->
+<div class="modal fade" id="urlEditorModal" tabindex="-1" aria-labelledby="urlEditorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="urlEditorModalLabel">Edit URL</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="urlEditorContent">
+                    <p>Loading suggestions...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
+// URL Editor functionality
+function showUrlEditor(claimId, claimIndex, urlType, currentUrl, entityType) {
+    const modal = new bootstrap.Modal(document.getElementById('urlEditorModal'));
+    const content = document.getElementById('urlEditorContent');
+    
+    // Show loading
+    content.innerHTML = '<p>Loading URL suggestions...</p>';
+    modal.show();
+    
+    // Fetch URL suggestions
+    fetch(`/api/url-suggestions`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            currentUrl: currentUrl,
+            entityType: entityType,
+            urlType: urlType
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            let html = `
+                <div class="mb-3">
+                    <label for="customUrl" class="form-label">Current URL:</label>
+                    <input type="text" class="form-control" id="currentUrlInput" value="${currentUrl}" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Suggested URLs (click to select):</label>
+                    <div class="list-group">
+            `;
+            
+            data.suggestions.forEach((suggestion, index) => {
+                html += `
+                    <button type="button" class="list-group-item list-group-item-action" onclick="selectSuggestion('${suggestion}')">
+                        <div class="d-flex w-100 justify-content-between">
+                            <small class="text-muted">${suggestion}</small>
+                            <small><i class="fas fa-external-link-alt"></i></small>
+                        </div>
+                    </button>
+                `;
+            });
+            
+            html += `
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="customUrl" class="form-label">Or enter a custom URL:</label>
+                    <input type="text" class="form-control" id="customUrl" placeholder="https://example.com/entity">
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" onclick="saveUrlChange('${claimId}', ${claimIndex}, '${urlType}')">
+                        <i class="fas fa-save me-1"></i>Save Changes
+                    </button>
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                </div>
+            `;
+            
+            content.innerHTML = html;
+        } else {
+            content.innerHTML = `
+                <div class="alert alert-danger">
+                    Error loading suggestions: ${data.error}
+                </div>
+                <div class="mb-3">
+                    <label for="customUrl" class="form-label">Enter a custom URL:</label>
+                    <input type="text" class="form-control" id="customUrl" value="${currentUrl}">
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" onclick="saveUrlChange('${claimId}', ${claimIndex}, '${urlType}')">
+                        <i class="fas fa-save me-1"></i>Save Changes
+                    </button>
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        content.innerHTML = `
+            <div class="alert alert-danger">
+                Network error: ${error.message}
+            </div>
+            <div class="mb-3">
+                <label for="customUrl" class="form-label">Enter a custom URL:</label>
+                <input type="text" class="form-control" id="customUrl" value="${currentUrl}">
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary" onclick="saveUrlChange('${claimId}', ${claimIndex}, '${urlType}')">
+                    <i class="fas fa-save me-1"></i>Save Changes
+                </button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        `;
+    });
+}
+
+function selectSuggestion(url) {
+    document.getElementById('customUrl').value = url;
+    // Highlight the selected suggestion
+    document.querySelectorAll('.list-group-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    event.target.closest('.list-group-item').classList.add('active');
+}
+
+function saveUrlChange(claimId, claimIndex, urlType) {
+    const newUrl = document.getElementById('customUrl').value.trim();
+    
+    if (!newUrl) {
+        alert('Please enter a URL');
+        return;
+    }
+    
+    if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
+        alert('URL must start with http:// or https://');
+        return;
+    }
+    
+    // Save the URL change
+    fetch(`/api/claims/${claimId}/update-url`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            claimIndex: claimIndex,
+            urlType: urlType,
+            newUrl: newUrl
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update the display
+            const displayElement = document.getElementById(`${urlType}-display-${claimId}-${claimIndex}`);
+            if (displayElement) {
+                displayElement.textContent = newUrl;
+            }
+            
+            // Hide the warning badge since URL has been verified
+            const badge = displayElement.parentElement.querySelector('.badge.bg-warning');
+            if (badge) {
+                badge.style.display = 'none';
+            }
+            
+            // Hide the modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('urlEditorModal'));
+            modal.hide();
+            
+            // Show success message
+            const statusDiv = document.getElementById(`single-status-${claimId}-${claimIndex}`);
+            if (statusDiv) {
+                statusDiv.innerHTML = `
+                    <div class="alert alert-success alert-sm py-2">
+                        <i class="fas fa-check-circle me-1"></i>URL updated successfully!
+                    </div>
+                `;
+                setTimeout(() => statusDiv.innerHTML = '', 3000);
+            }
+        } else {
+            alert(`Error updating URL: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        alert(`Network error: ${error.message}`);
+    });
+}
+
 // Publish all claims in a document
 function publishAllClaims(claimId) {
     const button = event.target.closest('button');

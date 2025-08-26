@@ -3,53 +3,260 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Claim Extractor{% endblock %}</title>
+    <title>{% block title %}LinkedTrust Claims Extraction{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        /* LinkedTrust Consistent Branding */
+        :root {
+            --primary-color: #00E3A5;
+            --primary-dark: #00B884;
+            --bg-dark: #0A1619;
+            --bg-darker: #092326;
+            --text-light: #80AB9E;
+            --text-lighter: rgba(128, 171, 158, 0.8);
+        }
+
+        body {
+            background-color: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* Sidebar */
         .sidebar {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-color: var(--bg-dark);
             min-height: 100vh;
             color: white;
+            border-right: 1px solid rgba(0, 227, 165, 0.2);
         }
+
+        .sidebar h4 {
+            color: var(--primary-color);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
         .sidebar .nav-link {
-            color: rgba(255, 255, 255, 0.8);
+            color: var(--text-lighter);
             padding: 15px 20px;
-            border-radius: 0;
-            transition: all 0.3s;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            margin: 5px 0;
         }
-        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+
+        .sidebar .nav-link:hover {
+            color: var(--primary-color);
+            background-color: rgba(0, 227, 165, 0.1);
+        }
+
+        .sidebar .nav-link.active {
             color: white;
-            background-color: rgba(255, 255, 255, 0.1);
+            background-color: rgba(0, 227, 165, 0.2);
+            border-left: 3px solid var(--primary-color);
         }
+
+        /* Main Content */
         .main-content {
             background-color: #f8f9fa;
             min-height: 100vh;
         }
+
+        /* Top Navigation */
+        .top-nav {
+            background-color: white;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--bg-dark);
+            font-weight: 600;
+        }
+
+        /* Cards */
         .card {
             border: none;
             box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border-radius: 10px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-        .btn-publish {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            background-color: transparent;
+            border-bottom: 1px solid rgba(0, 227, 165, 0.2);
+            font-weight: 600;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background-color: var(--primary-color);
             border: none;
+            color: var(--bg-dark);
+            font-weight: 600;
+            padding: 0.5rem 1.5rem;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 227, 165, 0.3);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            font-weight: 600;
+            padding: 0.5rem 1.5rem;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--primary-color);
+            color: var(--bg-dark);
+        }
+
+        .btn-publish {
+            background-color: var(--primary-color);
+            border: none;
+            color: var(--bg-dark);
+            font-weight: 600;
+        }
+
+        .btn-publish:hover {
+            background-color: var(--primary-dark);
+            color: var(--bg-dark);
+        }
+
+        /* Status badges */
+        .badge {
+            padding: 0.4em 0.8em;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+
+        .badge-pending {
+            background-color: #ffc107;
+            color: #000;
+        }
+
+        .badge-processing {
+            background-color: #17a2b8;
+            color: #fff;
+        }
+
+        .badge-completed {
+            background-color: var(--primary-color);
+            color: var(--bg-dark);
+        }
+
+        .badge-failed {
+            background-color: #dc3545;
+            color: #fff;
+        }
+
+        /* Alerts */
+        .alert {
+            border: none;
+            border-radius: 8px;
+        }
+
+        .alert-info {
+            background-color: rgba(0, 227, 165, 0.1);
+            color: var(--bg-dark);
+            border-left: 4px solid var(--primary-color);
+        }
+
+        /* Tables */
+        .table {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .table thead {
+            background-color: var(--bg-dark);
             color: white;
         }
-        .btn-publish:hover {
-            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
-            color: white;
+
+        .table thead th {
+            border: none;
+            padding: 1rem;
+            font-weight: 600;
+        }
+
+        .table tbody td {
+            vertical-align: middle;
+            padding: 1rem;
+        }
+
+        /* Logout link styling */
+        .logout-link {
+            color: var(--text-light);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .logout-link:hover {
+            color: #dc3545;
+        }
+
+        /* Loading animation */
+        .spinner-border {
+            color: var(--primary-color);
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                min-height: auto;
+                border-right: none;
+                border-bottom: 1px solid rgba(0, 227, 165, 0.2);
+            }
+
+            .top-nav {
+                flex-direction: column;
+                gap: 1rem;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
+    <div class="container-fluid p-0">
+        <div class="row g-0">
             <!-- Sidebar -->
             <div class="col-md-3 col-lg-2 sidebar">
                 <div class="p-3">
                     <h4 class="text-center mb-4">
-                        <i class="fas fa-search-plus"></i>
-                        Claim Extractor
+                        <i class="fas fa-link"></i>
+                        LinkedTrust Claims
                     </h4>
                     <nav class="nav flex-column">
                         <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
@@ -58,20 +265,48 @@
                         </a>
                         <a class="nav-link {% if request.endpoint == 'upload_file' %}active{% endif %}" href="{{ url_for('upload_file') }}">
                             <i class="fas fa-upload me-2"></i>
-                            Upload File
+                            Upload Report
+                        </a>
+                        <a class="nav-link" href="https://live.linkedtrust.us" target="_blank">
+                            <i class="fas fa-external-link-alt me-2"></i>
+                            LinkedTrust Network
                         </a>
                     </nav>
+
+                    <div class="mt-auto pt-4 border-top border-secondary">
+                        <p class="small text-center" style="color: var(--text-light);">
+                            Built on <a href="https://identity.foundation/labs-linkedclaims/" target="_blank" style="color: var(--primary-color); text-decoration: none;">LinkedClaims</a>
+                        </p>
+                    </div>
                 </div>
             </div>
             
             <!-- Main Content -->
             <div class="col-md-9 col-lg-10 main-content">
-                <div class="p-4">
+                <!-- Top Navigation Bar -->
+                <div class="top-nav">
+                    <div>
+                        <h5 class="mb-0">{% block page_title %}{% endblock %}</h5>
+                    </div>
+                    {% if current_user.is_authenticated %}
+                    <div class="user-info">
+                        <span>{{ current_user.email }}</span>
+                        <div class="user-avatar">
+                            {{ current_user.email[0].upper() }}
+                        </div>
+                        <a href="{{ url_for('auth.logout') }}" class="logout-link">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="px-4 pb-4">
                     <!-- Flash Messages -->
-                    {% with messages = get_flashed_messages() %}
+                    {% with messages = get_flashed_messages(with_categories=true) %}
                         {% if messages %}
-                            {% for message in messages %}
-                                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ 'info' if category == 'message' else category }} alert-dismissible fade show" role="alert">
                                     {{ message }}
                                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                                 </div>

@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedTrust Claims Extraction - Transform Impact Reports into Verifiable Claims</title>
+    <link rel="icon" type="image/x-icon" href="/static/img/favicon.ico">
+    
+    <!-- Encapsulated CSS following LinkedTrust brand guidelines -->
+    <style>
+        /* Base styles matching LinkedTrust brand */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #fff;
+            background-color: #0A1619;
+            overflow-x: hidden;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* Header */
+        header {
+            background-color: rgba(10, 22, 25, 0.95);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(0, 227, 165, 0.2);
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 0;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #00E3A5;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .nav-link {
+            color: #fff;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .nav-link:hover {
+            color: #00E3A5;
+        }
+
+        .login-btn {
+            background-color: transparent;
+            color: #00E3A5;
+            border: 2px solid #00E3A5;
+            padding: 0.5rem 1.5rem;
+            border-radius: 25px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .login-btn:hover {
+            background-color: #00E3A5;
+            color: #0A1619;
+        }
+
+        /* Hero Section */
+        #banner_container {
+            min-height: 95vh;
+            background-color: black;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            margin-top: 80px;
+            background: linear-gradient(180deg, #0A1619 0%, #092326 100%);
+        }
+
+        /* Floating glass cards - matching LinkedTrust style */
+        .glass-card {
+            backdrop-filter: blur(25px);
+            background: linear-gradient(180deg, hsla(0, 0%, 100%, .03) -30.29%, hsla(0, 0%, 100%, 0) 144.92%);
+            border-radius: 15px;
+            position: absolute;
+            padding: 2rem;
+            animation: float 20s infinite ease-in-out;
+        }
+
+        .one {
+            left: 22%;
+            top: 20%;
+            width: 200px;
+            height: 120px;
+        }
+
+        .two {
+            left: 50%;
+            top: 10%;
+            width: 150px;
+            height: 150px;
+        }
+
+        .three {
+            left: 27%;
+            top: 52%;
+            width: 180px;
+            height: 100px;
+        }
+
+        .four {
+            left: 45%;
+            top: 60%;
+            width: 120px;
+            height: 120px;
+        }
+
+        .five {
+            right: 25%;
+            top: 50%;
+            width: 160px;
+            height: 140px;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -30px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+        }
+
+        .hero-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        .hero-text h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 1.5rem;
+            line-height: 1.2;
+        }
+
+        .hero-text .highlight {
+            color: #00E3A5;
+        }
+
+        .hero-text .subtitle {
+            font-size: 1.25rem;
+            color: #80AB9E;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .cta-section {
+            margin-top: 2rem;
+        }
+
+        .btn-primary {
+            background-color: #00E3A5;
+            color: #0A1619;
+            padding: 1rem 2rem;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: inline-block;
+            margin-right: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 227, 165, 0.3);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: #fff;
+            border: 2px solid #fff;
+            padding: 1rem 2rem;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .btn-secondary:hover {
+            background-color: #fff;
+            color: #0A1619;
+        }
+
+        /* Trust badges */
+        .trust-section {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .trust-text {
+            color: #80AB9E;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+
+        .trust-logos {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* Feature visualization */
+        .feature-visual {
+            position: relative;
+            padding: 2rem;
+        }
+
+        .process-flow {
+            background: linear-gradient(135deg, rgba(0, 227, 165, 0.1) 0%, rgba(0, 227, 165, 0.05) 100%);
+            border-radius: 20px;
+            padding: 3rem;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 227, 165, 0.3);
+        }
+
+        .flow-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2rem;
+            opacity: 0;
+            animation: fadeIn 0.6s ease forwards;
+        }
+
+        .flow-item:nth-child(1) { animation-delay: 0.2s; }
+        .flow-item:nth-child(2) { animation-delay: 0.4s; }
+        .flow-item:nth-child(3) { animation-delay: 0.6s; }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+        }
+
+        .flow-icon {
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 227, 165, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1.5rem;
+            font-size: 1.5rem;
+            color: #00E3A5;
+            border: 2px solid #00E3A5;
+        }
+
+        .flow-text h3 {
+            color: #fff;
+            margin-bottom: 0.5rem;
+            font-size: 1.125rem;
+        }
+
+        .flow-text p {
+            color: #80AB9E;
+            font-size: 0.875rem;
+        }
+
+        /* How it works section */
+        .section {
+            padding: 5rem 0;
+        }
+
+        .section-light {
+            background-color: #fff;
+            color: #0A1619;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 3rem;
+            font-size: 1.125rem;
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .step-card {
+            background: #f8f9fa;
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .step-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .step-number {
+            background: #00E3A5;
+            color: #0A1619;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin: 0 auto 1rem;
+        }
+
+        /* Use cases */
+        .use-cases {
+            background: #092326;
+            padding: 5rem 0;
+        }
+
+        .use-case-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .use-case {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 227, 165, 0.3);
+            border-radius: 15px;
+            padding: 2rem;
+            transition: transform 0.3s ease;
+        }
+
+        .use-case:hover {
+            transform: translateY(-5px);
+            border-color: #00E3A5;
+        }
+
+        .use-case h3 {
+            color: #00E3A5;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+
+        .use-case p {
+            color: #80AB9E;
+            margin-bottom: 1rem;
+        }
+
+        .use-case ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .use-case li {
+            color: #fff;
+            padding: 0.5rem 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .use-case li::before {
+            content: "✓";
+            color: #00E3A5;
+            margin-right: 0.5rem;
+            font-weight: bold;
+        }
+
+        /* CTA section */
+        .cta-section-bottom {
+            background: linear-gradient(135deg, rgba(0, 227, 165, 0.1) 0%, rgba(0, 227, 165, 0.05) 100%);
+            padding: 4rem 0;
+            text-align: center;
+            margin: 5rem 0;
+        }
+
+        /* Footer */
+        footer {
+            background-color: #0A1619;
+            color: #80AB9E;
+            padding: 3rem 0 2rem;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .footer-link {
+            color: #80AB9E;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-link:hover {
+            color: #00E3A5;
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .hero-content {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .hero-text h1 {
+                font-size: 2rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .glass-card {
+                display: none;
+            }
+
+            .trust-logos {
+                justify-content: center;
+            }
+        }
+
+        /* Loading animation */
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <nav class="nav-container">
+                <a href="/" class="logo">
+                    <span>LinkedTrust</span>
+                    <span style="font-weight: 400; color: #80AB9E;">Claims</span>
+                </a>
+                <div class="nav-links">
+                    <a href="#how" class="nav-link">How It Works</a>
+                    <a href="#use-cases" class="nav-link">Use Cases</a>
+                    <a href="https://identity.foundation/labs-linkedclaims/" target="_blank" class="nav-link">LinkedClaims Standard</a>
+                    <a href="/login" class="login-btn">Login</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="banner_container">
+        <!-- Floating glass elements -->
+        <div class="glass-card one"></div>
+        <div class="glass-card two"></div>
+        <div class="glass-card three"></div>
+        <div class="glass-card four"></div>
+        <div class="glass-card five"></div>
+
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h1>Extract <span class="highlight">Verifiable Claims</span> from Impact Reports</h1>
+                    <p class="subtitle">
+                        Transform PDFs into structured, verifiable claims. Enable transparent validation 
+                        of grants, social impact, and program outcomes through the decentralized LinkedTrust network.
+                    </p>
+                    
+                    <div class="cta-section">
+                        <a href="/upload" class="btn-primary">Start Extracting Claims</a>
+                        <a href="#how" class="btn-secondary">Learn How It Works</a>
+                    </div>
+
+                    <div class="trust-section">
+                        <p class="trust-text">Built on open standards by:</p>
+                        <div class="trust-logos">
+                            <a href="https://identity.foundation/" target="_blank" style="color: #00E3A5; text-decoration: none;">
+                                Decentralized Identity Foundation
+                            </a>
+                            <span style="color: #80AB9E;">•</span>
+                            <a href="https://live.linkedtrust.us" target="_blank" style="color: #00E3A5; text-decoration: none;">
+                                LinkedTrust Network
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="feature-visual">
+                    <div class="process-flow">
+                        <div class="flow-item">
+                            <div class="flow-icon">📄</div>
+                            <div class="flow-text">
+                                <h3>Upload Reports</h3>
+                                <p>PDF grant reports, impact assessments, program outcomes</p>
+                            </div>
+                        </div>
+                        <div class="flow-item">
+                            <div class="flow-icon">🔍</div>
+                            <div class="flow-text">
+                                <h3>AI Extraction</h3>
+                                <p>Advanced AI identifies claims about deliverables and impact</p>
+                            </div>
+                        </div>
+                        <div class="flow-item">
+                            <div class="flow-icon">✓</div>
+                            <div class="flow-text">
+                                <h3>Enable Validation</h3>
+                                <p>Beneficiaries and partners verify claims directly</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="section section-light" id="how">
+        <div class="container">
+            <h2 class="section-title">How It Works</h2>
+            <p class="section-subtitle">Four simple steps to verifiable impact reporting</p>
+
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <h3>Upload Document</h3>
+                    <p>Upload your PDF report containing grant outcomes, impact metrics, or program results</p>
+                </div>
+
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <h3>Extract Claims</h3>
+                    <p>Our AI analyzes your document and extracts structured claims about achievements and impact</p>
+                </div>
+
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <h3>Review & Publish</h3>
+                    <p>Review extracted claims for accuracy, then publish to the decentralized LinkedTrust network</p>
+                </div>
+
+                <div class="step-card">
+                    <div class="step-number">4</div>
+                    <h3>Share for Validation</h3>
+                    <p>Send validation links to beneficiaries, partners, or auditors who can verify the claims</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Use Cases -->
+    <section class="use-cases" id="use-cases">
+        <div class="container">
+            <h2 class="section-title" style="color: #fff;">Built for the Impact Ecosystem</h2>
+            <p class="section-subtitle" style="color: #80AB9E;">Enable transparent verification across your organization</p>
+
+            <div class="use-case-grid">
+                <div class="use-case">
+                    <h3>🏛️ Foundations & Donor-Advised Funds</h3>
+                    <p>Extract and verify claims from grantee reports. Enable direct beneficiary validation of outcomes.</p>
+                    <ul>
+                        <li>Track grant impact transparently</li>
+                        <li>Enable beneficiary verification</li>
+                        <li>Build stakeholder trust</li>
+                        <li>Simplify impact reporting</li>
+                    </ul>
+                </div>
+
+                <div class="use-case">
+                    <h3>🌍 NGOs & Nonprofits</h3>
+                    <p>Transform program reports into verifiable claims. Let beneficiaries confirm services and outcomes.</p>
+                    <ul>
+                        <li>Document service delivery</li>
+                        <li>Enable beneficiary testimonials</li>
+                        <li>Demonstrate impact to funders</li>
+                        <li>Build evidence networks</li>
+                    </ul>
+                </div>
+
+                <div class="use-case">
+                    <h3>📊 Impact Evaluators & Auditors</h3>
+                    <p>Extract structured data from assessments. Create verifiable evidence chains for effectiveness.</p>
+                    <ul>
+                        <li>Structure evaluation data</li>
+                        <li>Enable third-party validation</li>
+                        <li>Create audit trails</li>
+                        <li>Improve transparency</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section-bottom">
+        <div class="container">
+            <h2 style="color: #fff; font-size: 2rem; margin-bottom: 1rem;">Ready to Transform Your Impact Reporting?</h2>
+            <p style="color: #80AB9E; margin-bottom: 2rem;">Join organizations building trust through verifiable claims</p>
+            <a href="/upload" class="btn-primary pulse">Get Started Now</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-links">
+                <a href="https://identity.foundation/labs-linkedclaims/" target="_blank" class="footer-link">LinkedClaims Standard</a>
+                <a href="https://live.linkedtrust.us" target="_blank" class="footer-link">LinkedTrust Network</a>
+                <a href="/api/docs" class="footer-link">API Documentation</a>
+                <a href="https://live.linkedtrust.us/privacy" class="footer-link">Privacy Policy</a>
+                <a href="mailto:support@linkedtrust.us" class="footer-link">Contact</a>
+            </div>
+            <p>&copy; 2025 LinkedTrust Claims Extraction Service. Built on open standards for transparent impact.</p>
+        </div>
+    </footer>
+
+    <!-- Smooth scrolling -->
+    <script>
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Add subtle parallax effect to glass cards
+        window.addEventListener('scroll', () => {
+            const scrolled = window.pageYOffset;
+            const parallax = document.querySelectorAll('.glass-card');
+            parallax.forEach((element, index) => {
+                const speed = 0.5 + (index * 0.1);
+                element.style.transform = `translateY(${scrolled * speed}px)`;
+            });
+        });
+    </script>
+</body>
+</html>

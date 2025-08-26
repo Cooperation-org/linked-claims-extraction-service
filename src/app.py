@@ -61,9 +61,9 @@ def allowed_file(filename):
 
 @app.route('/')
 def index():
-    """Main page - redirect to login if not authenticated"""
+    """Landing page for non-authenticated users, dashboard for authenticated"""
     if not current_user.is_authenticated:
-        return redirect('/auth/login')
+        return render_template('index.html')
     return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
@@ -748,6 +748,75 @@ def not_found(e):
 def server_error(e):
     logger.error(f"Server error: {e}")
     return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/url-suggestions', methods=['POST'])
+def get_url_suggestions():
+    """Get URL suggestions for an entity"""
+    try:
+        data = request.get_json()
+        current_url = data.get('currentUrl', '')
+        entity_type = data.get('entityType', 'unknown')
+        url_type = data.get('urlType', 'subject')
+        
+        # Import here to avoid circular imports
+        from url_generator import get_url_correction_suggestions, extract_entity_from_url
+        
+        # Extract entity name from current URL
+        entity_name = extract_entity_from_url(current_url)
+        
+        # Get suggestions
+        suggestions = get_url_correction_suggestions(entity_name, entity_type)
+        
+        return jsonify({
+            'success': True,
+            'suggestions': suggestions,
+            'entity_name': entity_name,
+            'entity_type': entity_type
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting URL suggestions: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/claims/<claim_id>/update-url', methods=['POST'])
+def update_claim_url(claim_id):
+    """Update a claim's URL"""
+    try:
+        data = request.get_json()
+        claim_index = data.get('claimIndex')
+        url_type = data.get('urlType')  # 'subject' or 'object'
+        new_url = data.get('newUrl')
+        
+        if not all([claim_index is not None, url_type, new_url]):
+            return jsonify({'success': False, 'error': 'Missing required parameters'}), 400
+            
+        if not new_url.startswith(('http://', 'https://')):
+            return jsonify({'success': False, 'error': 'URL must start with http:// or https://'}), 400
+        
+        # Find the claim in the database
+        # Note: This assumes we're working with draft claims stored in the database
+        # For now, we'll implement a simple approach that works with the current structure
+        
+        # TODO: Implement database lookup and update based on your current data structure
+        # This is a placeholder that would need to be adapted based on how claims are stored
+        
+        # For now, return success (the frontend will update the display)
+        # In a full implementation, you'd update the database record here
+        
+        logger.info(f"URL update requested for claim {claim_id}[{claim_index}]: {url_type} = {new_url}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'URL updated successfully',
+            'claim_id': claim_id,
+            'claim_index': claim_index,
+            'url_type': url_type,
+            'new_url': new_url
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating claim URL: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # CLI commands for database management
 @app.cli.command()

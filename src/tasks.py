@@ -173,18 +173,22 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
                             continue
                             
                         for claim_data in page_claims:
-                            # Extract subject, statement, object from claim data
-                            subject = claim_data.get('subject', '')
-                            statement = claim_data.get('claim', '') or claim_data.get('statement', '')
-                            obj = claim_data.get('object', '')
+                            # Import URL generation utility
+                            from url_generator import improve_claim_urls
                             
-                            # Infer URIs if needed
+                            # Improve URLs using our enhanced logic
+                            improved_claim = improve_claim_urls(claim_data, text)
+                            
+                            # Extract subject, statement, object from improved claim data
+                            subject = improved_claim.get('subject', '')
+                            statement = improved_claim.get('claim', '') or improved_claim.get('statement', '')
+                            obj = improved_claim.get('object', '')
+                            
+                            # Fallback to document-based URIs if still not URLs
                             if subject and not subject.startswith(('http://', 'https://')):
-                                # If subject is not a URI, try to make it one
                                 subject = f"{doc.public_url}#subject-{subject[:50]}"
                             
                             if obj and not obj.startswith(('http://', 'https://')):
-                                # If object is not a URI, try to make it one
                                 obj = f"{doc.public_url}#object-{obj[:50]}"
                             
                             # Create draft claim
@@ -193,6 +197,9 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
                                 subject=subject,
                                 statement=statement,
                                 object=obj,
+                                subject_suggested=improved_claim.get('subject_suggested'),
+                                object_suggested=improved_claim.get('object_suggested'),
+                                urls_need_verification=improved_claim.get('urls_need_verification', False),
                                 claim_data={
                                     'howKnown': claim_data.get('howKnown', 'DOCUMENT'),
                                     'confidence': claim_data.get('confidence'),
@@ -201,7 +208,9 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
                                     'stars': claim_data.get('stars'),
                                     'amt': claim_data.get('amt'),
                                     'unit': claim_data.get('unit'),
-                                    'howMeasured': claim_data.get('howMeasured')
+                                    'howMeasured': claim_data.get('howMeasured'),
+                                    'subject_entity_type': improved_claim.get('subject_entity_type'),
+                                    'object_entity_type': improved_claim.get('object_entity_type')
                                 },
                                 page_number=page_num,
                                 page_text_snippet=text[:500] if len(text) > 500 else text,
