@@ -111,7 +111,7 @@ class DraftClaim(db.Model):
     # URL correction tracking
     subject_suggested = db.Column(db.String(500), nullable=True)  # AI-suggested URL
     object_suggested = db.Column(db.String(500), nullable=True)   # AI-suggested URL
-    urls_need_verification = db.Column(db.Boolean, default=False, nullable=False)  # Flag if URLs are AI-generated
+    urls_need_verification = db.Column(db.Boolean, default=False, nullable=True)  # Flag if URLs are AI-generated
     
     # Context
     page_number = db.Column(db.Integer, nullable=True)
