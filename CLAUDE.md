@@ -56,27 +56,34 @@ The service now includes:
 
 ## Development Commands
 
-### Running the Application
+### Local Development Setup
 
-#### Development (Local)
+See `README_LOCAL_DEV.md` for detailed setup instructions.
+
+#### Quick Start (Local)
 ```bash
-# Activate virtual environment
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install/update dependencies
+# One-time setup
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env  # Edit with your API keys
+export FLASK_APP=src/app.py
+flask db upgrade
 
-# Start Redis (required for Celery)
+# Run development server
+python src/app.py
+# Server runs on http://localhost:5050
+```
+
+#### Optional: With Background Processing
+```bash
+# Start Redis (if you have it installed)
 redis-server
 
 # Start Celery worker (in separate terminal)
+source venv/bin/activate
 cd src
 celery -A celery_app.celery_app worker --loglevel=info
-
-# Run Flask development server (in separate terminal)
-cd src
-python app.py
-# Server runs on http://localhost:5050
 ```
 
 #### Production (Ansible Deployment)
