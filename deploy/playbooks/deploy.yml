@@ -139,13 +139,11 @@
         mode: '0755'
 
     # ===== DATABASE MIGRATIONS =====
-    - name: Initialize/Update database with Flask-Migrate
+    - name: Apply database migrations
       shell: |
         cd {{ app_dir }}
         . venv/bin/activate
         export FLASK_APP=src/app.py
-        flask db init || true
-        flask db migrate -m "Auto migration" || true
         flask db upgrade
       args:
         executable: /bin/bash

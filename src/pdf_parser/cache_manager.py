@@ -31,7 +31,7 @@ class PDFProcessingCache:
             with open(cache_path) as f:
                 metadata = json.load(f)
             return metadata.get('file_hash') != self.get_file_hash(filepath)
-        except:
+        except (FileNotFoundError, json.JSONDecodeError, KeyError):
             return True
     
     def update_metadata(self, filepath: str, pdf_name: str):
@@ -70,11 +70,11 @@ class ChromaDBManager:
     def get_or_create_collection(self, name: str):
         try:
             return self.client.get_collection(name)
-        except:
+        except Exception:
             return self.client.create_collection(name)
             
     def delete_collection(self, name: str):
         try:
             self.client.delete_collection(name)
-        except:
+        except Exception:
             pass

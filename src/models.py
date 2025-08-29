@@ -108,11 +108,6 @@ class DraftClaim(db.Model):
     claim_data = db.Column(db.JSON, nullable=True)
     # Can include: howKnown, confidence, aspect, score, stars, amt, unit, howMeasured
     
-    # URL correction tracking
-    subject_suggested = db.Column(db.String(500), nullable=True)  # AI-suggested URL
-    object_suggested = db.Column(db.String(500), nullable=True)   # AI-suggested URL
-    urls_need_verification = db.Column(db.Boolean, default=False, nullable=True)  # Flag if URLs are AI-generated
-    
     # Context
     page_number = db.Column(db.Integer, nullable=True)
     page_text_snippet = db.Column(db.Text, nullable=True)  # Context from the page
