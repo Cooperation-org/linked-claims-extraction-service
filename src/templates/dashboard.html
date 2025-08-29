@@ -42,8 +42,11 @@
             <div class="card text-center">
                 <div class="card-body">
                     <h3 class="h2 mb-0" style="color: var(--primary-color);">
-                        {% set total_claims = documents|map(attribute='draft_claims.count')|sum %}
-                        {{ documents|sum(attribute='draft_claims.count', start=0) }}
+                        {% set total_claims = 0 %}
+                        {% for doc in documents %}
+                            {% set total_claims = total_claims + doc.draft_claims.count() %}
+                        {% endfor %}
+                        {{ total_claims }}
                     </h3>
                     <p class="text-muted mb-0">Total Claims</p>
                 </div>

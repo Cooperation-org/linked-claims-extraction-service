@@ -197,9 +197,6 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
                                 subject=subject,
                                 statement=statement,
                                 object=obj,
-                                subject_suggested=improved_claim.get('subject_suggested'),
-                                object_suggested=improved_claim.get('object_suggested'),
-                                urls_need_verification=improved_claim.get('urls_need_verification', False),
                                 claim_data={
                                     'howKnown': claim_data.get('howKnown', 'DOCUMENT'),
                                     'confidence': claim_data.get('confidence'),
@@ -210,7 +207,10 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
                                     'unit': claim_data.get('unit'),
                                     'howMeasured': claim_data.get('howMeasured'),
                                     'subject_entity_type': improved_claim.get('subject_entity_type'),
-                                    'object_entity_type': improved_claim.get('object_entity_type')
+                                    'object_entity_type': improved_claim.get('object_entity_type'),
+                                    'subject_suggested': improved_claim.get('subject_suggested'),
+                                    'object_suggested': improved_claim.get('object_suggested'),
+                                    'urls_need_verification': improved_claim.get('urls_need_verification', False)
                                 },
                                 page_number=page_num,
                                 page_text_snippet=text[:500] if len(text) > 500 else text,
