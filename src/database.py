@@ -27,11 +27,14 @@ def init_database(app: Flask, db: SQLAlchemy):
     
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        'pool_size': 10,
-        'pool_recycle': 3600,
-        'pool_pre_ping': True
-    }
+    
+    # Only set PostgreSQL-specific options for PostgreSQL databases
+    if database_url.startswith('postgresql'):
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_size': 10,
+            'pool_recycle': 3600,
+            'pool_pre_ping': True
+        }
     
     db.init_app(app)
     

@@ -105,7 +105,8 @@ def get_or_create_user(user_id, email=None, name=None, provider='linkedtrust',
 def create_auth_routes(app):
     """Create authentication routes"""
     
-    @app.route('/auth/login', methods=['GET', 'POST'], endpoint='login')
+    @app.route('/login', methods=['GET', 'POST'], endpoint='login')
+    @app.route('/auth/login', methods=['GET', 'POST'])
     def login():
         """Login page and handler"""
         if request.method == 'GET':
@@ -279,6 +280,7 @@ def create_auth_routes(app):
             logger.error(f"GitHub OAuth failed: {e}")
             return jsonify({'error': 'OAuth authentication failed'}), 401
     
+    @app.route('/logout', endpoint='logout')
     @app.route('/auth/logout')
     def logout():
         """Logout user"""
