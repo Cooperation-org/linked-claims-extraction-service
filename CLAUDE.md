@@ -2,6 +2,32 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## IMPORTANT: Database Migrations
+
+**CRITICAL**: Database migrations are checked into git in the `migrations/` directory. 
+- NEVER auto-generate migrations on the server
+- NEVER modify the deployment to create migrations
+- ALWAYS create migrations locally and commit them to git
+- When adding new model fields, ensure nullable=True or provide defaults to avoid breaking existing data
+
+To create new migrations locally:
+```bash
+# Set up local environment
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Create migration
+export FLASK_APP=src/app.py
+export DATABASE_URL="sqlite:///local.db"  # Use local SQLite for migration generation
+flask db migrate -m "Description of changes"
+
+# Review the generated migration file in migrations/versions/
+# Commit to git
+git add migrations/versions/*.py
+git commit -m "Add migration: Description of changes"
+```
+
 ## Project Overview
 
 This is the Linked Claims Extraction Service - a Flask web application with background processing that extracts verifiable claims from PDF documents and publishes them to the decentralized LinkedTrust network at live.linkedtrust.us.

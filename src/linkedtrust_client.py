@@ -60,7 +60,7 @@ class LinkedTrustClient:
                     error_msg = error_data.get('error', 'Authentication failed')
                     logger.error(f"401 Authentication failed: {error_msg}")
                     raise AuthenticationError(f"401: {error_msg}")
-                except:
+                except (json.JSONDecodeError, requests.exceptions.JSONDecodeError):
                     logger.error(f"401 with non-JSON response: {response.text}")
                     raise AuthenticationError("Authentication token expired")
             

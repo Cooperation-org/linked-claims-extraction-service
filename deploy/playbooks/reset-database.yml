@@ -1,0 +1,67 @@
+---
+# ONE-TIME USE PLAYBOOK TO RESET DATABASE AND MIGRATIONS
+# WARNING: This will DELETE ALL DATA in the database
+# Run with: ansible-playbook -i inventory/production.yml playbooks/reset-database.yml --ask-vault-pass
+
+- name: RESET DATABASE AND MIGRATIONS (DESTRUCTIVE)
+  hosts: webservers
+  become: yes
+  vars_files:
+    - ../group_vars/webservers.yml
+  
+  tasks:
+    - name: Confirm destruction
+      pause:
+        prompt: "WARNING: This will DELETE ALL DATA. Type 'yes' to continue"
+      register: confirm
+      
+    - name: Abort if not confirmed
+      fail:
+        msg: "Aborted by user"
+      when: confirm.user_input != "yes"
+    
+    - name: Stop supervisor services
+      supervisorctl:
+        name: "{{ app_name }}"
+        state: stopped
+      ignore_errors: yes
+    
+    - name: Stop celery service
+      supervisorctl:
+        name: "{{ app_name }}-celery"
+        state: stopped
+      ignore_errors: yes
+    
+    - name: Delete migrations directory on server
+      file:
+        path: "{{ app_dir }}/migrations"
+        state: absent
+      become_user: "{{ app_user }}"
+    
+    - name: Drop and recreate database
+      block:
+        - name: Drop existing database
+          postgresql_db:
+            name: "{{ db_name }}"
+            state: absent
+          become_user: postgres
+          
+        - name: Create fresh database
+          postgresql_db:
+            name: "{{ db_name }}"
+            owner: "{{ db_user }}"
+            state: present
+          become_user: postgres
+    
+    - name: Ensure database user has correct permissions
+      postgresql_privs:
+        database: "{{ db_name }}"
+        roles: "{{ db_user }}"
+        privs: ALL
+        type: database
+        state: present
+      become_user: postgres
+    
+    - name: Message
+      debug:
+        msg: "Database reset complete. Now run the regular deploy playbook to set up fresh."
