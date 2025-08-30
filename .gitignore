@@ -71,3 +71,27 @@ talentstamp.pub
 
 ## others
 service.service
+
+# Virtual environments
+venv/
+.venv/
+test_env/
+
+# Cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local database
+local.db
+*.db
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

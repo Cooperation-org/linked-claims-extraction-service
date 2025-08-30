@@ -1,101 +1,165 @@
 # Linked Claims Extraction Service
 
-Web service for extracting structured claims from PDF documents and pushing them to LinkedTrust.
+Extract verifiable claims from PDF impact reports and publish them to the LinkedTrust network.
 
-**Live Demo**: [https://extract.linkedtrust.us](https://extract.linkedtrust.us)
+## Quick Start (Local Development)
 
-## Architecture Overview
-
-### Publishing Architecture
-
-This service uses a **direct frontend publishing approach**:
-
-- **Local Service**: Extracts claims from PDFs, stores draft claims for review
-- **Frontend Publishing**: Users authenticate directly with LinkedTrust and publish claims under their own account
-- **No Service-Side Credentials**: The service never stores or uses LinkedTrust credentials
-- **User-Controlled Publishing**: Each user publishes claims using their own LinkedTrust identity
-
-### Data Storage Philosophy
-
-- **Local PostgreSQL Database**: Stores ONLY draft claims, uploaded PDFs metadata, and processing status
-- **LinkedTrust Backend**: Stores ALL published claims and validations under user accounts  
-- **Key Point**: Claims are published directly by users, not by the service
-
-For detailed architecture and purpose, see [PURPOSE.md](PURPOSE.md)
-
-## Quick Start
+### 1. Setup
 
 ```bash
-# Clone the repository
-git clone git@github.com:Cooperation-org/linked-claims-extraction-service.git
+# Clone repository
+git clone https://github.com/Cooperation-org/linked-claims-extraction-service.git
 cd linked-claims-extraction-service
 
 # Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Set up environment variables
+# Configure environment
 cp .env.example .env
-# Edit .env with your API keys
-
-# Run the service
-python run.py
+# Edit .env and add your ANTHROPIC_API_KEY
 ```
 
-The service will start on http://localhost:5050
+### 2. Database Setup
+
+```bash
+# Set Flask app
+export FLASK_APP=src/app.py
+
+# Initialize database (creates local.db)
+flask db upgrade
+```
+
+### 3. Run
+
+```bash
+# Start the application
+python src/app.py
+```
+
+Visit http://localhost:5050
+
+## Features
+
+- **Extract Claims**: Upload PDF reports to extract structured claims
+- **Edit URLs**: Review and edit subject/object URLs before publishing
+- **Publish to LinkedTrust**: Send approved claims to the decentralized network
+- **Enable Validation**: Share links for beneficiaries to validate claims
+
+## Project Structure
+
+```
+linked-claims-extraction-service/
+├── src/
+│   ├── app.py                 # Main Flask application
+│   ├── models.py              # Database models
+│   ├── tasks.py               # Background tasks (Celery)
+│   ├── auth.py                # Authentication
+│   ├── linkedtrust_client.py  # LinkedTrust API client
+│   ├── claim_extractor.py     # Claims extraction logic
+│   ├── url_generator.py       # URL generation for entities
+│   ├── pdf_parser/            # PDF processing
+│   └── templates/             # HTML templates
+├── migrations/                # Database migrations
+├── tests/                     # Test suite
+├── docs/                      # Documentation
+└── requirements.txt           # Python dependencies
+```
 
 ## Configuration
 
-### LinkedTrust Account
-You need a LinkedTrust account to publish claims. **Register at [dev.linkedtrust.us](https://dev.linkedtrust.us)** for testing, or [live.linkedtrust.us](https://live.linkedtrust.us) for production.
+Key environment variables in `.env`:
 
-**Publishing Flow:** When you publish claims, the system uses your stored OAuth tokens from login to publish directly to LinkedTrust under your user account.
+```bash
+# Required
+ANTHROPIC_API_KEY=sk-ant-api03-xxxxx
 
-⚠️ **IMPORTANT:** Never prompt users for credentials they already provided during login! The system stores OAuth tokens - use them.
-
-### Environment Setup
-Edit `.env` file with your API keys:
-
-```env
-# AI API keys (required for claim extraction)
-ANTHROPIC_API_KEY=your-anthropic-key
-# OPENAI_API_KEY=your-openai-key  # Optional alternative
-
-# Flask configuration
-FLASK_SECRET_KEY=any-random-string-here
+# Optional (defaults work for local dev)
 FLASK_PORT=5050
-FLASK_DEBUG=False
-
-# LinkedTrust backend URL (dev for testing, live for production)
-LINKEDTRUST_BASE_URL=https://dev.linkedtrust.us
+DATABASE_URL=sqlite:///local.db
+LINKEDTRUST_API_URL=https://dev.linkedtrust.us/api
 ```
 
-**Note:** No LinkedTrust credentials needed in `.env` - users enter their own credentials when publishing.
+## Background Processing (Optional)
 
-## Usage
+For production-like setup with background jobs:
 
-1. Start the service with `python run.py`
-2. Open http://localhost:5050 in your browser
-3. Upload a PDF file
-4. Review and approve the extracted claims
-5. Click "Publish to LinkedTrust" 
-6. Enter your LinkedTrust credentials when prompted
-7. Claims are published directly to LinkedTrust under your user account
+1. Install Redis:
+   ```bash
+   # macOS
+   brew install redis
+   brew services start redis
+   
+   # Ubuntu
+   sudo apt-get install redis-server
+   ```
 
-## Troubleshooting
+2. Add to `.env`:
+   ```bash
+   REDIS_URL=redis://localhost:6379/0
+   ```
 
-- **ImportError**: Make sure you activated the virtual environment
-- **API Key errors**: Check your `.env` file has valid API keys
-- **Connection errors**: Check your LinkedTrust credentials are correct
+3. Run Celery worker (separate terminal):
+   ```bash
+   source .venv/bin/activate
+   celery -A src.celery_app.celery_app worker --loglevel=info
+   ```
 
-## Production Deployment
+## Development Workflow
 
-See [pdf_parser_DEPLOYMENT_GUIDE.MD](pdf_parser_DEPLOYMENT_GUIDE.MD) for production deployment.
+### Making Model Changes
 
-## Developer Notes
+```bash
+# Generate migration
+flask db migrate -m "Add new field to DraftClaim"
 
-⚠️ **Don't re-prompt for credentials** - User already logged in with OAuth, use stored tokens via `current_user.get_linkedtrust_client()`  
-⚠️ **Don't use fake URLs in claims** - Use real Wikipedia/LinkedIn URLs, never example.com
+# Apply migration
+flask db upgrade
+
+# Commit migration
+git add migrations/
+git commit -m "Add migration for new field"
+```
+
+### Testing
+
+```bash
+# Run tests
+pytest tests/
+
+# Run with coverage
+pytest --cov=src tests/
+```
+
+## Deployment
+
+See [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) for production deployment instructions.
+
+## API Documentation
+
+The service provides REST APIs for:
+- Document upload and processing
+- Claim management (CRUD operations)
+- Publishing to LinkedTrust
+- URL suggestions and validation
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see LICENSE file for details.
+
+## Support
+
+- Issues: https://github.com/Cooperation-org/linked-claims-extraction-service/issues
+- LinkedTrust Network: https://linkedtrust.us
+- LinkedClaims Standard: https://identity.foundation/linked-claims/
