@@ -8,22 +8,7 @@ Quick setup for testing claim extraction locally without Redis/Celery.
 export ANTHROPIC_API_KEY=your-api-key
 ```
 
-## Quick Test
-
-```bash
-# Install dependencies
-pip install -e .
-
-# Run manual test
-python manual_test.py
-```
-
-This will:
-1. Test extraction on sample text
-2. Test extraction on example PDF (if present)
-3. Show extracted claims in JSON format
-
-## Full Local Development
+## Local Development
 
 ```bash
 # Install all dependencies

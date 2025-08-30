@@ -778,38 +778,61 @@ def get_url_suggestions():
         logger.error(f"Error getting URL suggestions: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/claims/<claim_id>/update-url', methods=['POST'])
+@app.route('/api/claims/<int:claim_id>/update-url', methods=['POST'])
+@login_required
 def update_claim_url(claim_id):
     """Update a claim's URL"""
     try:
+        # Get the claim
+        claim = DraftClaim.query.get(claim_id)
+        if not claim:
+            return jsonify({'success': False, 'error': 'Claim not found'}), 404
+            
+        # Check ownership
+        document = Document.query.filter_by(id=claim.document_id, user_id=current_user.id).first()
+        if not document:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+            
+        # Only allow editing draft claims
+        if claim.status != 'draft':
+            return jsonify({'success': False, 'error': 'Can only edit draft claims'}), 400
+        
         data = request.get_json()
-        claim_index = data.get('claimIndex')
         url_type = data.get('urlType')  # 'subject' or 'object'
         new_url = data.get('newUrl')
         
-        if not all([claim_index is not None, url_type, new_url]):
+        if not all([url_type, new_url]):
             return jsonify({'success': False, 'error': 'Missing required parameters'}), 400
             
         if not new_url.startswith(('http://', 'https://')):
             return jsonify({'success': False, 'error': 'URL must start with http:// or https://'}), 400
         
-        # Find the claim in the database
-        # Note: This assumes we're working with draft claims stored in the database
-        # For now, we'll implement a simple approach that works with the current structure
+        # Update the appropriate field
+        if url_type == 'subject':
+            claim.subject = new_url
+            # Mark as verified since user manually edited
+            if claim.claim_data:
+                claim.claim_data['urls_need_verification'] = False
+            else:
+                claim.claim_data = {'urls_need_verification': False}
+        elif url_type == 'object':
+            claim.object = new_url
+            # Mark as verified since user manually edited
+            if claim.claim_data:
+                claim.claim_data['urls_need_verification'] = False
+            else:
+                claim.claim_data = {'urls_need_verification': False}
+        else:
+            return jsonify({'success': False, 'error': 'Invalid URL type'}), 400
         
-        # TODO: Implement database lookup and update based on your current data structure
-        # This is a placeholder that would need to be adapted based on how claims are stored
+        db.session.commit()
         
-        # For now, return success (the frontend will update the display)
-        # In a full implementation, you'd update the database record here
-        
-        logger.info(f"URL update requested for claim {claim_id}[{claim_index}]: {url_type} = {new_url}")
+        logger.info(f"Updated {url_type} URL for claim {claim_id} to {new_url}")
         
         return jsonify({
             'success': True,
             'message': f'URL updated successfully',
             'claim_id': claim_id,
-            'claim_index': claim_index,
             'url_type': url_type,
             'new_url': new_url
         })

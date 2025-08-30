@@ -1,0 +1,238 @@
+<!-- Claim Editor Component for URL editing -->
+<style>
+.claim-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    background: white;
+    transition: box-shadow 0.2s;
+}
+
+.claim-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.claim-field {
+    margin-bottom: 1rem;
+}
+
+.field-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 0.25rem;
+    display: block;
+}
+
+.field-value {
+    color: #333;
+    word-break: break-word;
+}
+
+.url-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.url-display {
+    flex: 1;
+    padding: 0.5rem;
+    background: #f5f5f5;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.875rem;
+    word-break: break-all;
+}
+
+.url-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    margin-left: 0.5rem;
+}
+
+.url-verified {
+    background: #d4edda;
+    color: #155724;
+}
+
+.url-needs-verification {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.url-invalid {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.url-edit-form {
+    display: none;
+    margin-top: 0.5rem;
+}
+
+.url-edit-form.active {
+    display: block;
+}
+
+.url-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.875rem;
+}
+
+.url-suggestions {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.url-suggestion {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    color: #2196F3;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.url-suggestion:hover {
+    background: #e3f2fd;
+    border-radius: 4px;
+}
+
+.claim-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e0e0e0;
+}
+
+.btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.edit-btn {
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    color: #333;
+}
+
+.edit-btn:hover {
+    background: #e0e0e0;
+}
+
+.approve-btn {
+    background: #4CAF50;
+    color: white;
+    border: none;
+}
+
+.approve-btn:hover {
+    background: #45a049;
+}
+
+.reject-btn {
+    background: #f44336;
+    color: white;
+    border: none;
+}
+
+.reject-btn:hover {
+    background: #da190b;
+}
+
+.claim-metadata {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.75rem;
+    color: #999;
+    margin-top: 0.5rem;
+}
+
+.metadata-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+</style>
+
+<script>
+function editClaimUrl(claimId, claimIndex, urlType) {
+    const form = document.getElementById(`edit-${urlType}-${claimIndex}`);
+    form.classList.toggle('active');
+}
+
+function applyUrlSuggestion(claimIndex, urlType, suggestedUrl) {
+    const input = document.getElementById(`input-${urlType}-${claimIndex}`);
+    input.value = suggestedUrl;
+}
+
+async function saveClaimUrl(claimId, claimIndex, urlType) {
+    const input = document.getElementById(`input-${urlType}-${claimIndex}`);
+    const newUrl = input.value.trim();
+    
+    if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
+        alert('URL must start with http:// or https://');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/claims/${claimId}/update-url`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                claimIndex: claimIndex,
+                urlType: urlType,
+                newUrl: newUrl
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            // Update the display
+            const display = document.getElementById(`display-${urlType}-${claimIndex}`);
+            display.textContent = newUrl;
+            editClaimUrl(claimId, claimIndex, urlType); // Close form
+        } else {
+            alert(data.error || 'Failed to update URL');
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function getUrlSuggestions(claimId, claimIndex, urlType, currentUrl) {
+    try {
+        const response = await fetch('/api/url-suggestions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                claimId: claimId,
+                currentUrl: currentUrl,
+                entityType: document.getElementById(`entity-type-${urlType}-${claimIndex}`).dataset.entityType,
+                urlType: urlType
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success && data.suggestions) {
+            const suggestionsDiv = document.getElementById(`suggestions-${urlType}-${claimIndex}`);
+            suggestionsDiv.innerHTML = '<strong>Suggestions:</strong><br>' + 
+                data.suggestions.map(url => 
+                    `<a class="url-suggestion" onclick="applyUrlSuggestion(${claimIndex}, '${urlType}', '${url}')">${url}</a>`
+                ).join('');
+        }
+    } catch (error) {
+        console.error('Error getting suggestions:', error);
+    }
+}
+</script>
