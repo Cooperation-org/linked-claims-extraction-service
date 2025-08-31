@@ -181,7 +181,7 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
                             
                             # Extract subject, statement, object from improved claim data
                             subject = improved_claim.get('subject', '')
-                            statement = improved_claim.get('claim', '') or improved_claim.get('statement', '')
+                            statement = improved_claim.get('statement', '') or improved_claim.get('claim', '')
                             obj = improved_claim.get('object', '')
                             
                             # Fallback to document-based URIs if still not URLs
@@ -198,6 +198,7 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
                                 statement=statement,
                                 object=obj,
                                 claim_data={
+                                    'claim': claim_data.get('claim'),  # The predicate (e.g., 'impact', 'rated', 'same_as')
                                     'howKnown': claim_data.get('howKnown', 'DOCUMENT'),
                                     'confidence': claim_data.get('confidence'),
                                     'aspect': claim_data.get('aspect'),

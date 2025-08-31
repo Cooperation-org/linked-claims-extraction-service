@@ -447,6 +447,7 @@ def publish_claims(document_id):
                 # Prepare claim payload
                 claim_payload = {
                     'subject': claim.subject,
+                    'claim': claim.claim_data.get('claim') if claim.claim_data else None,  # The predicate
                     'statement': claim.statement,
                     'object': claim.object,
                     'sourceURI': document.public_url or f"{request.url_root}document/{document_id}",
@@ -456,6 +457,22 @@ def publish_claims(document_id):
                     'issuerId': current_user.email,
                     'issuerIdType': 'EMAIL'
                 }
+                
+                # Add additional fields from claim_data if present
+                if claim.claim_data:
+                    # Add aspect if present
+                    if claim.claim_data.get('aspect'):
+                        claim_payload['aspect'] = claim.claim_data['aspect']
+                    # Add quantitative fields
+                    if claim.claim_data.get('amt') is not None:
+                        claim_payload['amt'] = claim.claim_data['amt']
+                    if claim.claim_data.get('unit'):
+                        claim_payload['unit'] = claim.claim_data['unit']
+                    # Add rating fields
+                    if claim.claim_data.get('score') is not None:
+                        claim_payload['score'] = claim.claim_data['score']
+                    if claim.claim_data.get('stars') is not None:
+                        claim_payload['stars'] = claim.claim_data['stars']
                 
                 # Remove None values
                 claim_payload = {k: v for k, v in claim_payload.items() if v is not None}
