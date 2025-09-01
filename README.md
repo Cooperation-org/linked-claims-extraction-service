@@ -12,8 +12,8 @@ git clone https://github.com/Cooperation-org/linked-claims-extraction-service.gi
 cd linked-claims-extraction-service
 
 # Create virtual environment
-python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -21,17 +21,14 @@ pip install -r requirements.txt
 # Configure environment
 cp .env.example .env
 # Edit .env and add your ANTHROPIC_API_KEY
+
+# Register a username at https://dev.linkedtrust.us
+# you will use this username and password to login (or use Metamask)
 ```
 
 ### 2. Database Setup
 
-```bash
-# Set Flask app
-export FLASK_APP=src/app.py
-
-# Initialize database (creates local.db)
-flask db upgrade
-```
+The database tables will be created automatically when you first run the app. By default, it creates a `local.db` SQLite file in your current directory.
 
 ### 3. Run
 
@@ -79,7 +76,7 @@ ANTHROPIC_API_KEY=sk-ant-api03-xxxxx
 
 # Optional (defaults work for local dev)
 FLASK_PORT=5050
-DATABASE_URL=sqlite:///local.db
+DATABASE_URL=sqlite:///local.db  # Defaults to sqlite:///local.db
 LINKEDTRUST_API_URL=https://dev.linkedtrust.us/api
 ```
 
