@@ -52,6 +52,13 @@ def init_auth(app):
     login_manager.init_app(app)
     login_manager.login_view = 'login'
     
+    # Handle unauthorized requests - return JSON for AJAX
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        if request.is_json or 'application/json' in request.headers.get('Accept', ''):
+            return jsonify({'error': 'Authentication required', 'redirect': url_for('login')}), 401
+        return redirect(url_for('login'))
+    
     # Session configuration
     app.config['SESSION_TYPE'] = 'filesystem'
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)

@@ -160,6 +160,9 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
                             logger.error(f"API call failed for page {page_num}: {api_error}")
                             logger.error(f"Error type: {type(api_error).__name__}")
                             logger.error(f"Error details: {str(api_error)}")
+                            # Check if it's an authentication error
+                            if "401" in str(api_error) or "authentication" in str(api_error).lower() or "api-key" in str(api_error).lower():
+                                raise ValueError(f"API Authentication failed - check your ANTHROPIC_API_KEY: {api_error}")
                             page_claims = []
                         
                         # Log the API response
