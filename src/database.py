@@ -16,14 +16,8 @@ def init_database(app: Flask, db: SQLAlchemy):
     database_url = os.getenv('DATABASE_URL')
     
     if not database_url:
-        # Default to PostgreSQL on hub server
-        db_user = os.getenv('DB_USER', 'linkedclaims')
-        db_pass = os.getenv('DB_PASSWORD', '')
-        db_host = os.getenv('DB_HOST', 'localhost')
-        db_port = os.getenv('DB_PORT', '5432')
-        db_name = os.getenv('DB_NAME', 'linkedclaims_extraction')
-        
-        database_url = f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+        # Default to SQLite in current working directory for local development
+        database_url = "sqlite:///local.db"
     
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False

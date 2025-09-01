@@ -49,6 +49,17 @@ CORS(app)
 # Initialize database
 migrate = init_database(app, db)
 
+# Create tables if they don't exist (for local development)
+with app.app_context():
+    try:
+        # Check if tables exist by querying users table
+        db.session.execute(db.text("SELECT 1 FROM users LIMIT 1"))
+    except Exception:
+        # Tables don't exist, create them
+        logger.info("Database tables not found, creating them...")
+        db.create_all()
+        logger.info("✅ Database tables created successfully")
+
 # Initialize Celery
 celery = create_celery_app(app)
 
