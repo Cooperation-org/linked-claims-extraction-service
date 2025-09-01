@@ -18,6 +18,9 @@ dist/
 build/
 out/
 
+# Runtime files
+uploads/
+
 # Environment files
 .env
 .env.local

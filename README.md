@@ -28,7 +28,15 @@ cp .env.example .env
 
 ### 2. Database Setup
 
-The database tables will be created automatically when you first run the app. By default, it creates a `local.db` SQLite file in your current directory.
+The app will automatically create database tables on first run. If you encounter any issues:
+
+```bash
+# Initialize database manually
+export FLASK_APP=src/app.py
+flask db upgrade
+```
+
+By default, it creates a `local.db` SQLite file in your current directory.
 
 ### 3. Run
 

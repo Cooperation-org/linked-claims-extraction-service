@@ -214,16 +214,35 @@ function restartExtraction(docId) {
                 'Content-Type': 'application/json',
             }
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
+        .then(async response => {
+            // Handle authentication errors
+            if (response.status === 401) {
+                alert('Your session has expired. Please log in again.');
+                window.location.href = '/login';
+                return;
+            }
+            
+            // Check if response is JSON
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                const data = await response.json();
+                if (data.success) {
+                    location.reload();
+                } else if (data.redirect) {
+                    window.location.href = data.redirect;
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to restart extraction'));
+                }
             } else {
-                alert('Error: ' + (data.error || 'Failed to restart'));
+                // Response is not JSON (probably HTML error page)
+                const text = await response.text();
+                console.error('Non-JSON response:', text);
+                alert(`Error: Server returned non-JSON response (status ${response.status}). Check console for details.`);
             }
         })
         .catch(error => {
-            alert('Error: ' + error);
+            console.error('Restart extraction error:', error);
+            alert('Error restarting extraction: ' + error.message);
         });
     }
 }

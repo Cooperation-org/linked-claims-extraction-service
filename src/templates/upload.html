@@ -15,6 +15,13 @@
                 </h5>
             </div>
             <div class="card-body">
+                {% if local_dev_mode %}
+                <div class="alert alert-warning mb-4">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Local Development Mode:</strong> Processing will happen synchronously. Please use only short documents (1-2 pages) for testing as extraction will block the UI.
+                </div>
+                {% endif %}
+                
                 <div class="alert alert-info mb-4">
                     <i class="fas fa-info-circle me-2"></i>
                     Upload PDF reports containing grant outcomes, impact metrics, or program results. 

@@ -19,6 +19,7 @@ from database import init_database, create_tables
 from celery_app import create_celery_app
 from auth import init_auth, create_auth_routes, AuthUser
 from linkedtrust_client import LinkedTrustClient
+from task_runner import task_runner
 import tasks  # Import tasks to register them with Celery
 
 # Load environment variables
@@ -51,14 +52,52 @@ migrate = init_database(app, db)
 
 # Create tables if they don't exist (for local development)
 with app.app_context():
-    try:
-        # Check if tables exist by querying users table
-        db.session.execute(db.text("SELECT 1 FROM users LIMIT 1"))
-    except Exception:
-        # Tables don't exist, create them
-        logger.info("Database tables not found, creating them...")
-        db.create_all()
-        logger.info("✅ Database tables created successfully")
+    # Check if we're using SQLite (local dev)
+    is_sqlite = 'sqlite' in app.config.get('SQLALCHEMY_DATABASE_URI', '').lower()
+    
+    if is_sqlite:
+        # ONLY for SQLite/local dev - create tables automatically
+        try:
+            logger.info("SQLite detected - ensuring database tables exist...")
+            
+            # Disable foreign key constraints temporarily for SQLite
+            try:
+                db.session.execute(db.text("PRAGMA foreign_keys=OFF"))
+            except:
+                pass  # Ignore if this fails
+            
+            # Create all tables (this is safe - won't drop existing tables)
+            db.create_all()
+            
+            # Re-enable foreign key constraints
+            try:
+                db.session.execute(db.text("PRAGMA foreign_keys=ON"))
+            except:
+                pass
+            
+            db.session.commit()
+            
+            # Verify tables were actually created
+            try:
+                db.session.execute(db.text("SELECT 1 FROM documents LIMIT 1"))
+                logger.info("✅ Database tables created successfully - documents table verified")
+            except Exception as verify_error:
+                logger.error(f"⚠️ WARNING: documents table not found after create_all()")
+                logger.error(f"Verification error: {verify_error}")
+                # Try to get more info about what tables exist
+                try:
+                    result = db.session.execute(db.text("SELECT name FROM sqlite_master WHERE type='table'"))
+                    tables = [row[0] for row in result]
+                    logger.info(f"Existing tables: {tables}")
+                except:
+                    pass
+                    
+        except Exception as create_error:
+            logger.error(f"Failed to ensure database tables: {create_error}")
+            logger.info("Try running manually: export FLASK_APP=src/app.py && flask db upgrade")
+    else:
+        # Production - do nothing, tables should already exist via migrations
+        pass
 
 # Initialize Celery
 celery = create_celery_app(app)
@@ -93,7 +132,7 @@ def dashboard():
 def upload_file():
     """Handle file upload with metadata"""
     if request.method == 'GET':
-        return render_template('upload.html')
+        return render_template('upload.html', local_dev_mode=os.getenv('LOCAL_DEV_MODE', 'false').lower() == 'true')
     
     # Check for file
     if 'file' not in request.files:
@@ -151,20 +190,19 @@ def upload_file():
         db.session.commit()
         
         # Queue background task for claim extraction
-        from tasks import extract_claims_from_document
-        task = extract_claims_from_document.delay(document.id)
+        task_result = task_runner.run_extraction(document.id)
         
         # Create processing job record
         job = ProcessingJob(
-            id=task.id,
+            id=task_result['id'],
             document_id=document.id,
             job_type='extract_claims',
-            status='pending'
+            status='completed' if task_result.get('is_sync') else 'pending'
         )
         db.session.add(job)
         db.session.commit()
         
-        logger.info(f"Document {document.id} uploaded by user {current_user.id}, processing task {task.id} queued")
+        logger.info(f"Document {document.id} uploaded by user {current_user.id}, processing task {task_result['id']} queued")
         
         # Flash success message and redirect
         flash('File uploaded successfully. Processing will begin shortly.', 'success')
@@ -247,23 +285,22 @@ def reprocess_document(document_id):
     db.session.commit()
     
     # Queue new extraction task
-    from tasks import extract_claims_from_document
-    task = extract_claims_from_document.delay(document_id)
+    task_result = task_runner.run_extraction(document_id)
     
     # Create processing job record
     job = ProcessingJob(
-        id=task.id,
+        id=task_result['id'],
         document_id=document_id,
         job_type='extract_claims',
-        status='pending'
+        status='completed' if task_result.get('is_sync') else 'pending'
     )
     db.session.add(job)
     db.session.commit()
     
     return jsonify({
         'success': True,
-        'task_id': task.id,
-        'message': 'Document queued for reprocessing'
+        'task_id': task_result['id'],
+        'message': 'Document queued for reprocessing' if not task_result.get('is_sync') else 'Document reprocessed'
     })
 
 @app.route('/api/jobs')
@@ -556,6 +593,7 @@ def delete_document(document_id):
 @login_required
 def restart_extraction(document_id):
     """Restart the extraction process for a document"""
+    logger.info(f"Restart extraction requested for document {document_id} by user {current_user.id if current_user.is_authenticated else 'anonymous'}")
     try:
         # Get the document - ensure user owns it
         document = Document.query.filter_by(id=document_id, user_id=current_user.id).first()
@@ -574,27 +612,26 @@ def restart_extraction(document_id):
         db.session.commit()
         
         # Queue extraction task
-        from tasks import extract_claims_from_document
-        task = extract_claims_from_document.delay(document_id)
+        task_result = task_runner.run_extraction(document_id)
         
         # Create processing job record
         job = ProcessingJob(
-            id=task.id,
+            id=task_result['id'],
             document_id=document_id,
             job_type='extract_claims',
-            status='pending'
+            status='completed' if task_result.get('is_sync') else 'pending'
         )
         db.session.add(job)
         db.session.commit()
         
         return jsonify({
             'success': True,
-            'task_id': task.id,
+            'task_id': task_result['id'],
             'message': 'Extraction restarted successfully'
         })
     
     except Exception as e:
-        logger.error(f"Error restarting extraction for document {document_id}: {e}")
+        logger.error(f"Error restarting extraction for document {document_id}: {e}", exc_info=True)
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
