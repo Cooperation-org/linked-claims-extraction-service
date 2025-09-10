@@ -293,6 +293,13 @@
                     <button class="btn btn-sm btn-outline-secondary" onclick="editUrl({{ claim.id }}, {{ loop.index0 }}, 'subject')">
                         <i class="fas fa-edit"></i>
                     </button>
+                    <!-- DEBUG: urls_need_verification = {{ claim.claim_data.urls_need_verification if claim.claim_data else 'NO CLAIM_DATA' }} -->
+                    {% if claim.claim_data and claim.claim_data.urls_need_verification %}
+                    <button class="btn btn-sm btn-outline-info ms-1" onclick="showSearchDialog({{ claim.id }}, {{ loop.index0 }}, 'subject')" title="Search for additional URLs">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    {% endif %}
+                    <!-- DEBUG: subject_url_candidates = {{ claim.claim_data.subject_url_candidates|length if claim.claim_data and claim.claim_data.subject_url_candidates else 'NONE' }} -->
                 </div>
                 <div class="url-edit-form" id="edit-subject-{{ loop.index0 }}">
                     <input type="url" 
@@ -300,7 +307,31 @@
                            id="input-subject-{{ loop.index0 }}" 
                            value="{{ claim.subject }}"
                            placeholder="https://...">
-                    {% if claim.claim_data.subject_suggested %}
+                    <!-- DEBUG: Checking subject_url_candidates = {{ claim.claim_data.subject_url_candidates if claim.claim_data else 'NO CLAIM_DATA' }} -->
+                    {% if claim.claim_data and claim.claim_data.subject_url_candidates %}
+                    <div class="url-suggestions">
+                        <div class="suggestion-label">URL Candidates (found by search):</div>
+                        {% for candidate in claim.claim_data.subject_url_candidates[:5] %}
+                        <div class="suggestion-item-container" style="margin-bottom: 0.5rem;">
+                            <a class="suggestion-item" onclick="applyUrl({{ loop.index0 }}, 'subject', '{{ candidate.url }}')">
+                                {{ candidate.url }}
+                                {% if candidate.title %}
+                                <small class="text-muted d-block">{{ candidate.title }}</small>
+                                {% endif %}
+                            </a>
+                            <div class="d-flex justify-content-between align-items-center mt-1">
+                                <small class="text-muted">Confidence: {{ (candidate.confidence * 100)|round }}%</small>
+                                <button class="btn btn-xs btn-success" onclick="applyUrl({{ loop.index0 }}, 'subject', '{{ candidate.url }}'); saveUrl({{ claim.id }}, {{ loop.index0 }}, 'subject');" style="font-size: 0.7rem; padding: 0.1rem 0.3rem;">
+                                    <i class="fas fa-check"></i> Use This
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% if claim.claim_data.subject_entity_type %}
+                        <small class="text-muted">Detected as: {{ claim.claim_data.subject_entity_type }}</small>
+                        {% endif %}
+                    </div>
+                    {% elif claim.claim_data.subject_suggested %}
                     <div class="url-suggestions">
                         <div class="suggestion-label">Suggested URLs:</div>
                         <a class="suggestion-item" onclick="applyUrl({{ loop.index0 }}, 'subject', '{{ claim.claim_data.subject_suggested }}')">
@@ -429,8 +460,37 @@
     {% endif %}
 </div>
 
+<!-- Search Modal for Additional URLs -->
+<div class="modal fade" id="searchModal" tabindex="-1" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="searchModalLabel">Search for Additional URLs</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="searchTermInput" class="form-label">Enter additional search terms:</label>
+                    <input type="text" class="form-control" id="searchTermInput" 
+                           placeholder="e.g., 'MoreMilk Kenya dairy training', 'Ethiopia salt iodization program'">
+                    <small class="text-muted">Try different combinations of keywords, full organization names, or program descriptions</small>
+                </div>
+                <button class="btn btn-primary" onclick="performAdditionalSearch()">
+                    <i class="fas fa-search me-1"></i>Search
+                </button>
+                <div id="searchResults" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 const documentId = '{{ document.id }}';
+
+// Global variables to track current search context
+let currentSearchClaimId = null;
+let currentSearchClaimIndex = null;
+let currentSearchUrlType = null;
 
 // Auto-refresh if processing
 {% if document.status in ['pending', 'processing'] %}
@@ -595,6 +655,105 @@ async function reprocessDocument() {
         console.error('Reprocess error:', error);
         alert('Error reprocessing document: ' + error.message);
     }
+}
+
+function showSearchDialog(claimId, claimIndex, urlType) {
+    currentSearchClaimId = claimId;
+    currentSearchClaimIndex = claimIndex;
+    currentSearchUrlType = urlType;
+    
+    const modal = new bootstrap.Modal(document.getElementById('searchModal'));
+    document.getElementById('searchTermInput').value = '';
+    document.getElementById('searchResults').innerHTML = '';
+    modal.show();
+}
+
+function performAdditionalSearch() {
+    const searchTerm = document.getElementById('searchTermInput').value.trim();
+    const resultsDiv = document.getElementById('searchResults');
+    
+    if (!searchTerm) {
+        alert('Please enter search terms');
+        return;
+    }
+    
+    resultsDiv.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Searching...</p>';
+    
+    fetch('/api/search-urls', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            searchTerm: searchTerm,
+            claimId: currentSearchClaimId,
+            claimIndex: currentSearchClaimIndex,
+            urlType: currentSearchUrlType
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.results && data.results.length > 0) {
+            let html = `
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle me-1"></i>Found ${data.results.length} URL(s)
+                </div>
+                <div class="list-group">
+            `;
+            
+            data.results.forEach((result, index) => {
+                html += `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="flex-grow-1">
+                                <a href="${result.url}" target="_blank" class="text-decoration-none">
+                                    ${result.url}
+                                </a>
+                                ${result.title ? `<div class="text-muted small">${result.title}</div>` : ''}
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-info me-2">${(result.confidence * 100).toFixed(1)}%</span>
+                                <button class="btn btn-sm btn-success" onclick="approveSearchResult('${result.url}')">
+                                    <i class="fas fa-check me-1"></i>Use This
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        } else {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    No URLs found for "${searchTerm}". Try different search terms or enter a URL manually.
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        resultsDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle me-1"></i>
+                Search error: ${error.message}
+            </div>
+        `;
+    });
+}
+
+function approveSearchResult(selectedUrl) {
+    // Update the input field and save
+    const inputElement = document.getElementById(`input-${currentSearchUrlType}-${currentSearchClaimIndex}`);
+    if (inputElement) {
+        inputElement.value = selectedUrl;
+        saveUrl(currentSearchClaimId, currentSearchClaimIndex, currentSearchUrlType);
+    }
+    
+    // Close the search modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('searchModal'));
+    modal.hide();
 }
 </script>
 {% endblock %}
