@@ -223,3 +223,86 @@ class ClaimCache(db.Model):
             'fetched_at': self.fetched_at.isoformat() if self.fetched_at else None,
             'last_checked': self.last_checked.isoformat() if self.last_checked else None
         }
+
+
+class VerifiedOrganization(db.Model):
+    """
+    Store verified organization name -> URL mappings to avoid repeated web searches
+    """
+    __tablename__ = 'verified_organizations'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    
+    # Organization name as it appears in documents (normalized)
+    organization_name = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    
+    # Verified official URL
+    official_url = db.Column(db.String(500), nullable=False)
+    
+    # Optional: organization type or category
+    organization_type = db.Column(db.String(100), nullable=True)
+    
+    # Who verified this mapping
+    verified_by_user_id = db.Column(db.String(255), db.ForeignKey('users.id'), nullable=True)
+    
+    # When it was verified
+    verified_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Track usage
+    times_used = db.Column(db.Integer, default=0, nullable=False)
+    last_used = db.Column(db.DateTime, nullable=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'organization_name': self.organization_name,
+            'official_url': self.official_url,
+            'organization_type': self.organization_type,
+            'verified_at': self.verified_at.isoformat() if self.verified_at else None,
+            'times_used': self.times_used,
+            'last_used': self.last_used.isoformat() if self.last_used else None
+        }
+    
+    @staticmethod
+    def normalize_name(name):
+        """Normalize organization name for consistent lookup"""
+        return name.lower().strip().replace('_', ' ').replace('-', ' ')
+    
+    @classmethod
+    def get_verified_url(cls, org_name):
+        """Get verified URL for an organization name"""
+        normalized = cls.normalize_name(org_name)
+        org = cls.query.filter_by(organization_name=normalized).first()
+        if org:
+            # Update usage tracking
+            org.times_used += 1
+            org.last_used = datetime.utcnow()
+            db.session.commit()
+            return org.official_url
+        return None
+    
+    @classmethod 
+    def add_verified_organization(cls, org_name, official_url, user_id=None, org_type=None):
+        """Add a new verified organization mapping"""
+        normalized = cls.normalize_name(org_name)
+        
+        # Check if already exists
+        existing = cls.query.filter_by(organization_name=normalized).first()
+        if existing:
+            # Update existing
+            existing.official_url = official_url
+            existing.verified_by_user_id = user_id
+            existing.verified_at = datetime.utcnow()
+            existing.organization_type = org_type
+        else:
+            # Create new
+            org = cls(
+                organization_name=normalized,
+                official_url=official_url,
+                verified_by_user_id=user_id,
+                organization_type=org_type
+            )
+            db.session.add(org)
+        
+        db.session.commit()
+        return True

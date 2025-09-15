@@ -30,7 +30,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize Flask app
-app = Flask(__name__, template_folder='templates')
+app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), 'templates'))
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here')
 
 # Configure prompts from environment
@@ -124,6 +124,10 @@ celery = create_celery_app(app)
 # Initialize authentication
 login_manager = init_auth(app)
 create_auth_routes(app)
+
+# Add URL verification API routes
+from api_url_verification import add_url_verification_routes
+add_url_verification_routes(app)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -419,6 +423,17 @@ def approve_claim(claim_id):
         return jsonify({'error': 'Access denied'}), 403
     
     claim.status = 'approved'
+    
+    # Clear verification flags since user has approved the URLs
+    if claim.claim_data:
+        claim.claim_data['urls_need_verification'] = False
+        claim.claim_data['subject_url_verified'] = True
+    else:
+        claim.claim_data = {
+            'urls_need_verification': False,
+            'subject_url_verified': True
+        }
+    
     db.session.commit()
     
     return jsonify({
@@ -899,22 +914,40 @@ def update_claim_url(claim_id):
         # Update the appropriate field
         if url_type == 'subject':
             claim.subject = new_url
-            # Mark as verified since user manually edited
-            if claim.claim_data:
-                claim.claim_data['urls_need_verification'] = False
-            else:
-                claim.claim_data = {'urls_need_verification': False}
+            logger.info(f"Setting subject to: {new_url}")
         elif url_type == 'object':
             claim.object = new_url
-            # Mark as verified since user manually edited
-            if claim.claim_data:
-                claim.claim_data['urls_need_verification'] = False
-            else:
-                claim.claim_data = {'urls_need_verification': False}
+            logger.info(f"Setting object to: {new_url}")
         else:
             return jsonify({'success': False, 'error': 'Invalid URL type'}), 400
         
-        db.session.commit()
+        try:
+            db.session.commit()
+            logger.info(f"Successfully committed {url_type} URL change for claim {claim_id}")
+            
+            # If this is a subject URL update, save it as a verified organization
+            if url_type == 'subject' and claim.subject.startswith(('http://', 'https://')):
+                try:
+                    # Extract original organization name from the claim data or URN
+                    original_subject = data.get('originalSubject', '')
+                    if original_subject.startswith('urn:local:org:'):
+                        org_name = original_subject.replace('urn:local:org:', '').replace('_', ' ')
+                        
+                        from models import VerifiedOrganization
+                        VerifiedOrganization.add_verified_organization(
+                            org_name=org_name,
+                            official_url=new_url,
+                            user_id=current_user.id if current_user else None,
+                            org_type='organization'
+                        )
+                        logger.info(f"Added verified organization: {org_name} -> {new_url}")
+                except Exception as org_save_error:
+                    logger.warning(f"Could not save verified organization: {org_save_error}")
+                    
+        except Exception as commit_error:
+            logger.error(f"Database commit failed: {commit_error}")
+            db.session.rollback()
+            return jsonify({'success': False, 'error': f'Database save failed: {str(commit_error)}'}), 500
         
         logger.info(f"Updated {url_type} URL for claim {claim_id} to {new_url}")
         
@@ -928,6 +961,56 @@ def update_claim_url(claim_id):
         
     except Exception as e:
         logger.error(f"Error updating claim URL: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/search-urls', methods=['POST'])
+@login_required
+def search_urls():
+    """Search for additional URLs using custom search terms"""
+    try:
+        data = request.get_json()
+        search_term = data.get('searchTerm', '').strip()
+        
+        if not search_term:
+            return jsonify({'success': False, 'error': 'Search term is required'}), 400
+        
+        # Import the URL search functionality
+        from url_resolver import search_organization_urls
+        
+        logger.info(f"User search for URLs: '{search_term}'")
+        
+        # Search for URLs using the provided search term
+        try:
+            candidates = search_organization_urls(search_term)
+            
+            # Format results for the frontend
+            results = []
+            for title, url, confidence in candidates[:10]:  # Return top 10 results
+                results.append({
+                    'url': url,
+                    'title': title,
+                    'confidence': confidence
+                })
+            
+            logger.info(f"User search returned {len(results)} results for '{search_term}'")
+            
+            return jsonify({
+                'success': True,
+                'results': results,
+                'search_term': search_term,
+                'total_results': len(results)
+            })
+            
+        except Exception as search_error:
+            logger.error(f"Search error for '{search_term}': {search_error}")
+            return jsonify({
+                'success': False,
+                'error': f'Search failed: {str(search_error)}',
+                'results': []
+            }), 500
+        
+    except Exception as e:
+        logger.error(f"Error in search URLs endpoint: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # CLI commands for database management
