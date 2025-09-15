@@ -33,6 +33,10 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, template_folder='templates')
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here')
 
+# Configure prompts from environment
+from app_config import configure_prompts
+configure_prompts(app)
+
 # Configure upload settings
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 ALLOWED_EXTENSIONS = {'pdf'}

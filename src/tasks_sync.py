@@ -22,6 +22,7 @@ def extract_claims_from_document_sync(document_id: str, batch_size: int = 5):
     logger.info(f"Starting synchronous claim extraction for document {document_id}")
     
     # Just use the existing database connection - we're already in the app context
+    from flask import current_app
     from models import db, Document, DraftClaim
     from claim_extractor import ClaimExtractor
     
@@ -42,9 +43,12 @@ def extract_claims_from_document_sync(document_id: str, batch_size: int = 5):
             logger.error("ANTHROPIC_API_KEY environment variable not set!")
             raise ValueError("ANTHROPIC_API_KEY not configured")
         
-        # Initialize extractor
-        extractor = ClaimExtractor()
-        logger.info("ClaimExtractor initialized successfully")
+        # Initialize extractor with prompt configuration
+        extractor = ClaimExtractor(
+            message_prompt=current_app.config.get('LT_MESSAGE_PROMPT'),
+            extra_system_instructions=current_app.config.get('LT_EXTRA_SYSTEM_PROMPT', '')
+        )
+        logger.info("ClaimExtractor initialized with prompt configuration")
         
         # Get total page count
         with fitz.open(doc.file_path) as pdf:

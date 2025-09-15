@@ -22,10 +22,14 @@ def get_app():
     app = Flask(__name__)
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://extractor:fluffyHedgehog2025@localhost/extractor')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    
+
     from models import db
     db.init_app(app)
-    
+
+    # Configure prompts
+    from app_config import configure_prompts
+    configure_prompts(app)
+
     return app
 
 # Create app for context
@@ -116,9 +120,12 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
             else:
                 logger.info("ANTHROPIC_API_KEY is configured")
             
-            # Initialize extractor
-            extractor = ClaimExtractor()
-            logger.info("ClaimExtractor initialized successfully")
+            # Initialize extractor with prompt configuration
+            extractor = ClaimExtractor(
+                message_prompt=flask_app.config.get('LT_MESSAGE_PROMPT'),
+                extra_system_instructions=flask_app.config.get('LT_EXTRA_SYSTEM_PROMPT', '')
+            )
+            logger.info("ClaimExtractor initialized with prompt configuration")
             
             # Get total page count
             with fitz.open(doc.file_path) as pdf:
