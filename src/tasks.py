@@ -22,10 +22,14 @@ def get_app():
     app = Flask(__name__)
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://extractor:fluffyHedgehog2025@localhost/extractor')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    
+
     from models import db
     db.init_app(app)
-    
+
+    # Configure prompts
+    from app_config import configure_prompts
+    configure_prompts(app)
+
     return app
 
 # Create app for context
@@ -116,9 +120,12 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
             else:
                 logger.info("ANTHROPIC_API_KEY is configured")
             
-            # Initialize extractor
-            extractor = ClaimExtractor()
-            logger.info("ClaimExtractor initialized successfully")
+            # Initialize extractor with prompt configuration
+            extractor = ClaimExtractor(
+                message_prompt=flask_app.config.get('LT_MESSAGE_PROMPT'),
+                extra_system_instructions=flask_app.config.get('LT_EXTRA_SYSTEM_PROMPT', '')
+            )
+            logger.info("ClaimExtractor initialized with prompt configuration")
             
             # Get total page count
             with fitz.open(doc.file_path) as pdf:
@@ -187,8 +194,12 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
                             statement = improved_claim.get('statement', '') or improved_claim.get('claim', '')
                             obj = improved_claim.get('object', '')
                             
+                            # Use subject_url as default when subject is blank/empty
+                            if not subject and doc.subject_url:
+                                subject = doc.subject_url
+                                logger.info(f"Using document subject_url as default subject: {subject}")
                             # Fallback to document-based URIs if still not URLs
-                            if subject and not subject.startswith(('http://', 'https://')):
+                            elif subject and not subject.startswith(('http://', 'https://')):
                                 subject = f"{doc.public_url}#subject-{subject[:50]}"
                             
                             if obj and not obj.startswith(('http://', 'https://')):
