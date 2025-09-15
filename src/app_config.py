@@ -24,19 +24,19 @@ def load_prompt_file(file_param: str) -> str:
             logger.warning(f"Could not find prompt file at absolute path: {file_param}")
             return ""
 
-    # Relative path - look in prompts/ directory
-    prompt_path = Path(__file__).parent.parent / "prompts" / f"{file_param}.md"
+    # Relative path - look in src/prompts/ directory
+    prompt_path = Path(__file__).parent / "prompts" / f"{file_param}.md"
     if prompt_path.exists():
         with open(prompt_path, 'r') as f:
             return f.read().strip()
 
     # Try with .md already included
-    prompt_path = Path(__file__).parent.parent / "prompts" / file_param
+    prompt_path = Path(__file__).parent / "prompts" / file_param
     if prompt_path.exists():
         with open(prompt_path, 'r') as f:
             return f.read().strip()
 
-    logger.warning(f"Could not find prompt file: {file_param} (looked in prompts/ directory)")
+    logger.warning(f"Could not find prompt file: {file_param} (looked in src/prompts/ directory)")
     return ""
 
 

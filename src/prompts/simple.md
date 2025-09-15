@@ -6,7 +6,7 @@ the SUBJECT is who the claim is ABOUT, it may be the ngo itself and not be menti
 
 the CLAIM we are interested in is 'impact' or 'funds_for_purpose', in a few cases we may be interested in relationship claims such as 'controlled', 'worked_for', 'same_as'.  should be a single word or two word verb phrase connected by underscore.
 
-OBJECT is who or what was IMPACTED, if applicable.  It may be an entity or place.   
+OBJECT is who or what was IMPACTED, if applicable.  It may be an entity or place.
 
 SUBJECT and OBJECT ***MUST*** be valid URIs. Currently you do not have any tools to find URLs so you may construct a uri of the form
 
