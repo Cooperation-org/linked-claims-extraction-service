@@ -22,6 +22,7 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env and add your ANTHROPIC_API_KEY
 
+
 # Register a username at https://dev.linkedtrust.us
 # you will use this username and password to login (or use Metamask)
 ```
