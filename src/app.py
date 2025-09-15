@@ -151,8 +151,9 @@ def upload_file():
     
     # Get metadata from form
     public_url = request.form.get('public_url', '').strip()
+    subject_url = request.form.get('subject_url', '').strip()
     effective_date_str = request.form.get('effective_date', '').strip()
-    
+
     # Validate required fields
     if not public_url:
         return jsonify({'error': 'Public URL is required'}), 400
@@ -186,6 +187,7 @@ def upload_file():
             original_filename=file.filename,
             file_path=file_path,
             public_url=public_url,
+            subject_url=subject_url if subject_url else None,
             effective_date=effective_date,
             user_id=current_user.id,
             status='pending'

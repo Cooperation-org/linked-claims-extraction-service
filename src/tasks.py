@@ -194,8 +194,12 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
                             statement = improved_claim.get('statement', '') or improved_claim.get('claim', '')
                             obj = improved_claim.get('object', '')
                             
+                            # Use subject_url as default when subject is blank/empty
+                            if not subject and doc.subject_url:
+                                subject = doc.subject_url
+                                logger.info(f"Using document subject_url as default subject: {subject}")
                             # Fallback to document-based URIs if still not URLs
-                            if subject and not subject.startswith(('http://', 'https://')):
+                            elif subject and not subject.startswith(('http://', 'https://')):
                                 subject = f"{doc.public_url}#subject-{subject[:50]}"
                             
                             if obj and not obj.startswith(('http://', 'https://')):

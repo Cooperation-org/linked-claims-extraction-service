@@ -86,6 +86,32 @@ ANTHROPIC_API_KEY=sk-ant-api03-xxxxx
 FLASK_PORT=5050
 DATABASE_URL=sqlite:///local.db  # Defaults to sqlite:///local.db
 LINKEDTRUST_API_URL=https://dev.linkedtrust.us/api
+
+# Prompt Configuration (optional)
+# Defaults to 'simple' prompt if not specified
+LT_USE_PROMPT_FILE=simple              # Name of prompt file in prompts/ directory
+LT_EXTRA_SYSTEM_PROMPT_FILE=           # Additional system instructions file
+```
+
+### Prompt Configuration
+
+The service uses customizable prompts for claim extraction. Prompts are stored in the `prompts/` directory.
+
+- **Default prompt**: `prompts/simple.md` is used by default
+- **Custom prompts**: Create `.md` files in `prompts/` and reference by name (without extension)
+- **Absolute paths**: Start with `/` to use prompts from anywhere on the filesystem
+- **Relative paths**: All other paths are interpreted relative to the `prompts/` directory
+
+Example:
+```bash
+# Use a custom prompt from prompts/ directory
+LT_USE_PROMPT_FILE=detailed-extraction
+
+# Use an absolute path
+LT_USE_PROMPT_FILE=/path/to/my/custom-prompt.md
+
+# Add extra system instructions
+LT_EXTRA_SYSTEM_PROMPT_FILE=organization-specific
 ```
 
 ## Background Processing (Optional)
