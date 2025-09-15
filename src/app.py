@@ -72,15 +72,30 @@ with app.app_context():
             
             # Create all tables (this is safe - won't drop existing tables)
             db.create_all()
-            
+
+            # For SQLite, manually add missing columns (since create_all doesn't alter existing tables)
+            try:
+                # Check if subject_url column exists
+                db.session.execute(db.text("SELECT subject_url FROM documents LIMIT 1"))
+                logger.info("subject_url column already exists")
+            except Exception:
+                # Column doesn't exist, add it
+                logger.info("Adding subject_url column to documents table...")
+                try:
+                    db.session.execute(db.text("ALTER TABLE documents ADD COLUMN subject_url VARCHAR(500)"))
+                    db.session.commit()
+                    logger.info("✅ Added subject_url column successfully")
+                except Exception as alter_error:
+                    logger.error(f"Failed to add subject_url column: {alter_error}")
+
             # Re-enable foreign key constraints
             try:
                 db.session.execute(db.text("PRAGMA foreign_keys=ON"))
             except:
                 pass
-            
+
             db.session.commit()
-            
+
             # Verify tables were actually created
             try:
                 db.session.execute(db.text("SELECT 1 FROM documents LIMIT 1"))
@@ -211,11 +226,14 @@ def upload_file():
         logger.info(f"Document {document.id} uploaded by user {current_user.id}, processing task {task_result['id']} queued")
         
         # Flash success message and redirect
-        flash('File uploaded successfully. Processing will begin shortly.', 'success')
+        if task_result.get('is_sync'):
+            flash('File uploaded successfully. Claims have been extracted and are ready for review.', 'success')
+        else:
+            flash('File uploaded successfully. Processing will begin shortly.', 'success')
         return redirect(url_for('document_status', document_id=document.id))
         
     except Exception as e:
-        logger.error(f"Error uploading file: {str(e)}")
+        logger.exception(f"Error uploading file: {str(e)}")
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
 @app.route('/document/<document_id>')

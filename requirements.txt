@@ -1,5 +1,5 @@
 # Core dependencies
-linked-claims-extractor>=0.2.3
+linked-claims-extractor>=0.2.4
 Flask==3.0.3
 Flask-Cors==5.0.0
 Flask-SQLAlchemy==3.1.1
