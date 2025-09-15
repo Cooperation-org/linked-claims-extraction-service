@@ -1,0 +1,1 @@
+Extract specific, verifiable claims from the provided text. Focus on factual statements that can be independently verified. Return only the claims in the requested JSON format without any additional commentary.
