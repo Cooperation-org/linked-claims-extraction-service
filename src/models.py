@@ -52,7 +52,10 @@ class Document(db.Model):
     
     # Public URL for the document (this becomes the source URI for all claims)
     public_url = db.Column(db.String(500), nullable=False)
-    
+
+    # Organization/subject URL (used as default subject when extractor returns blank)
+    subject_url = db.Column(db.String(500), nullable=True)
+
     # Document metadata
     effective_date = db.Column(db.Date, nullable=False)
     user_id = db.Column(db.String(255), db.ForeignKey('users.id'), nullable=False)  # User who uploaded the document
