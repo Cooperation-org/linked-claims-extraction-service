@@ -23,6 +23,7 @@ def extract_claims_from_document_sync(document_id: str, batch_size: int = 5):
     
     # Just use the existing database connection - we're already in the app context
     from models import db, Document, DraftClaim
+    from extractor import extract_claims
     from claim_extractor import ClaimExtractor
     
     # Get document
@@ -42,7 +43,7 @@ def extract_claims_from_document_sync(document_id: str, batch_size: int = 5):
             logger.error("ANTHROPIC_API_KEY environment variable not set!")
             raise ValueError("ANTHROPIC_API_KEY not configured")
         
-        # Initialize extractor
+        # Initialize extractor before page loop
         extractor = ClaimExtractor()
         logger.info("ClaimExtractor initialized successfully")
         
@@ -79,7 +80,7 @@ def extract_claims_from_document_sync(document_id: str, batch_size: int = 5):
                     
                     # Extract claims from page text
                     try:
-                        page_claims = extractor.extract_claims(text)
+                        page_claims = extract_claims(extractor, text)
                     except Exception as api_error:
                         logger.error(f"API call failed for page {page_num}: {api_error}")
                         # Check if it's an authentication error
@@ -97,7 +98,9 @@ def extract_claims_from_document_sync(document_id: str, batch_size: int = 5):
                         from url_generator import improve_claim_urls
                         
                         # Improve URLs using our enhanced logic
+                        # logger.info(f"Pre-improvement claim data: {claim_data}")
                         improved_claim = improve_claim_urls(claim_data, text)
+                        # logger.info(f"Improved claim data: {improved_claim}")
                         
                         # Extract subject, statement, object from improved claim data
                         subject = improved_claim.get('subject', '')

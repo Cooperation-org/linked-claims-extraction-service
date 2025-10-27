@@ -79,6 +79,7 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
     with flask_app.app_context():
         from models import db, Document, DraftClaim, ProcessingJob
         from pdf_parser.simple_document_manager import SimpleDocumentManager
+        from src.extractor import extract_claims
         from claim_extractor import ClaimExtractor
         
         # Get document
@@ -116,7 +117,7 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
             else:
                 logger.info("ANTHROPIC_API_KEY is configured")
             
-            # Initialize extractor
+            # Initialize extractor before page loop
             extractor = ClaimExtractor()
             logger.info("ClaimExtractor initialized successfully")
             
@@ -155,7 +156,7 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
                         
                         # Extract claims from page text
                         try:
-                            page_claims = extractor.extract_claims(text)
+                            page_claims = extract_claims(extractor, text)
                         except Exception as api_error:
                             logger.error(f"API call failed for page {page_num}: {api_error}")
                             logger.error(f"Error type: {type(api_error).__name__}")
