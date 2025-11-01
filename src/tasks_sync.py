@@ -24,6 +24,7 @@ def extract_claims_from_document_sync(document_id: str, batch_size: int = 5):
     # Just use the existing database connection - we're already in the app context
     from flask import current_app
     from models import db, Document, DraftClaim
+    from extractor import extract_claims
     from claim_extractor import ClaimExtractor
     
     # Get document
@@ -73,93 +74,95 @@ def extract_claims_from_document_sync(document_id: str, batch_size: int = 5):
         
         # Extract claims from each page
         for page_num, text in batch_texts:
-            if not text or len(text) < 50:  # Skip empty or very short pages
-                logger.info(f"Skipping page {page_num} - too short ({len(text)} chars)")
-                continue
+                if not text or len(text) < 50:  # Skip empty or very short pages
+                    logger.info(f"Skipping page {page_num} - too short ({len(text)} chars)")
+                    continue
             
-            logger.info(f"Extracting claims from page {page_num} with {len(text)} characters")
+                logger.info(f"Extracting claims from page {page_num} with {len(text)} characters")
             
-            # Extract claims from page text
-            try:
-                page_claims = extractor.extract_claims(text)
-            except Exception as api_error:
-                logger.exception(f"Extract Claims failed for page {page_num}: {api_error}")
-                # Check if it's an authentication error
-                if "401" in str(api_error) or "authentication" in str(api_error).lower() or "api-key" in str(api_error).lower():
-                    raise ValueError(f"API Authentication failed - check your ANTHROPIC_API_KEY: {api_error}")
-                page_claims = []
-            
-            logger.info(f"Page {page_num} returned {len(page_claims) if page_claims else 0} claims")
-            
-            if not page_claims:
-                continue
+
                 
-            for claim_data in page_claims:
-                # Import URL generation utility
-                from url_generator import improve_claim_urls
-                
-                # Improve URLs using our enhanced logic
-                improved_claim = improve_claim_urls(claim_data, text)
-                
-                # Extract subject, statement, object from improved claim data
-                subject = improved_claim.get('subject', '')
-                statement = improved_claim.get('statement', '') or improved_claim.get('claim', '')
-                obj = improved_claim.get('object', '')
-                
-                # Use subject_url as default when subject is blank/empty
-                if not subject and doc.subject_url:
-                    subject = doc.subject_url
-                    logger.info(f"Using document subject_url as default subject: {subject}")
-                # Fallback to document-based URIs if still not URLs
-                elif subject and not subject.startswith(('http://', 'https://')):
-                    subject = f"{doc.public_url}#subject-{subject[:50]}"
-                
-                if obj and not obj.startswith(('http://', 'https://')):
-                    obj = f"{doc.public_url}#object-{obj[:50]}"
-                
-                # Create draft claim
-                draft_claim = DraftClaim(
-                    document_id=document_id,
-                    subject=subject,
-                    statement=statement,
-                    object=obj,
-                    claim_data={
-                        'claim': claim_data.get('claim'),
-                        'howKnown': claim_data.get('howKnown', 'DOCUMENT'),
-                        'confidence': claim_data.get('confidence'),
-                        'aspect': claim_data.get('aspect'),
-                        'score': claim_data.get('score'),
-                        'stars': claim_data.get('stars'),
-                        'amt': claim_data.get('amt'),
-                        'unit': claim_data.get('unit'),
-                        'howMeasured': claim_data.get('howMeasured'),
-                        'subject_entity_type': improved_claim.get('subject_entity_type'),
-                        'object_entity_type': improved_claim.get('object_entity_type'),
-                        'subject_suggested': improved_claim.get('subject_suggested'),
-                        'object_suggested': improved_claim.get('object_suggested'),
-                        'urls_need_verification': improved_claim.get('urls_need_verification', False)
-                    },
-                    page_number=page_num,
-                    page_text_snippet=text[:500] if len(text) > 500 else text,
-                    status='draft'
-                )
-                db.session.add(draft_claim)
-                total_claims_extracted += 1
-        
-        # Commit batch
-        db.session.commit()
-        logger.info(f"Extracted {total_claims_extracted} claims so far")
+                try:
+                    logger.info(f"Extracting claims from page {page_num} with {len(text)} characters")
+                    
+                    # Extract claims from page text
+                    try:
+                        page_claims = extract_claims(extractor, text)
+                    except Exception as api_error:
+                        logger.error(f"API call failed for page {page_num}: {api_error}")
+                        # Check if it's an authentication error
+                        if "401" in str(api_error) or "authentication" in str(api_error).lower() or "api-key" in str(api_error).lower():
+                            raise ValueError(f"API Authentication failed - check your ANTHROPIC_API_KEY: {api_error}")
+                        page_claims = []
+                    
+                    logger.info(f"Page {page_num} returned {len(page_claims) if page_claims else 0} claims")
+                    
+                    if not page_claims:
+                        continue
+                        
+                    for claim_data in page_claims:
+                        # Import URL generation utility
+                        from url_generator import improve_claim_urls
+                        
+                        # Improve URLs using our enhanced logic
+                        # logger.info(f"Pre-improvement claim data: {claim_data}")
+                        improved_claim = improve_claim_urls(claim_data, text)
+                        # logger.info(f"Improved claim data: {improved_claim}")
+                        
+                        # Extract subject, statement, object from improved claim data
+                        subject = improved_claim.get('subject', '')
+                        statement = improved_claim.get('statement', '') or improved_claim.get('claim', '')
+                        obj = improved_claim.get('object', '')
+                        
+                        # Fallback to document-based URIs if still not URLs
+                        if subject and not subject.startswith(('http://', 'https://')):
+                            subject = f"{doc.public_url}#subject-{subject[:50]}"
+                        
+                        if obj and not obj.startswith(('http://', 'https://')):
+                            obj = f"{doc.public_url}#object-{obj[:50]}"
+                        
+                        # Create draft claim
+                        draft_claim = DraftClaim(
+                            document_id=document_id,
+                            subject=subject,
+                            statement=statement,
+                            object=obj,
+                            claim_data={
+                                'claim': claim_data.get('claim'),
+                                'howKnown': claim_data.get('howKnown', 'DOCUMENT'),
+                                'confidence': claim_data.get('confidence'),
+                                'aspect': claim_data.get('aspect'),
+                                'score': claim_data.get('score'),
+                                'stars': claim_data.get('stars'),
+                                'amt': claim_data.get('amt'),
+                                'unit': claim_data.get('unit'),
+                                'howMeasured': claim_data.get('howMeasured'),
+                                'subject_entity_type': improved_claim.get('subject_entity_type'),
+                                'object_entity_type': improved_claim.get('object_entity_type'),
+                                'subject_suggested': improved_claim.get('subject_suggested'),
+                                'object_suggested': improved_claim.get('object_suggested'),
+                                'urls_need_verification': improved_claim.get('urls_need_verification', False)
+                            },
+                            page_number=page_num,
+                            page_text_snippet=text[:500] if len(text) > 500 else text,
+                            status='draft'
+                        )
+                        db.session.add(draft_claim)
+                        total_claims_extracted += 1
+                        
+                except Exception as e:
+                    logger.error(f"Error extracting claims from page {page_num}: {e}")
+                    continue
     
-    # Update document status
-    doc.status = 'completed'
-    doc.processing_completed_at = datetime.utcnow()
-    db.session.commit()
+# Update document status
+doc.status = 'completed'
+doc.processing_completed_at = datetime.utcnow()
+db.session.commit()
     
-    logger.info(f"Completed extraction: {total_claims_extracted} claims from {total_pages} pages")
-    return {
+logger.info(f"Completed extraction: {total_claims_extracted} claims from {total_pages} pages")
+return {
         'document_id': document_id,
         'total_pages': total_pages,
         'total_claims': total_claims_extracted,
         'status': 'completed'
-    }
-        
+}
