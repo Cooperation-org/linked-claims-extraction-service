@@ -36,12 +36,19 @@
                     </div>
                     
                     <div class="mb-4">
-                        <label for="public_url" class="form-label fw-bold">Public URL of Document</label>
-                        <input type="url" class="form-control" id="public_url" name="public_url" 
+                        <label for="public_url" class="form-label fw-bold">Does this document have a public URL on the web?</label>
+                        <input type="url" class="form-control" id="public_url" name="public_url"
                                placeholder="https://yourorg.org/reports/2024-impact-report.pdf" required>
                         <div class="form-text">Where can this report be publicly accessed? This creates a verifiable source link.</div>
                     </div>
-                    
+
+                    <div class="mb-4">
+                        <label for="subject_url" class="form-label fw-bold">What organization is this document ABOUT? Does it have a url?</label>
+                        <input type="url" class="form-control" id="subject_url" name="subject_url"
+                               placeholder="https://yourorganization.org" >
+                        <div class="form-text">Optional: URL of the organization or subject this document is about. Used as default subject for claims when not specified.</div>
+                    </div>
+
                     <div class="mb-4">
                         <label for="effective_date" class="form-label fw-bold">Report Date</label>
                         <input type="date" class="form-control" id="effective_date" name="effective_date" required>

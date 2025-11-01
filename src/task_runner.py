@@ -39,32 +39,23 @@ class TaskRunner:
             logger.info(f"Running extraction synchronously for document {document_id}")
             logger.info("⏳ PROCESSING CLAIMS NOW - Note: Please use only short documents (1-2 pages) for local testing")
             
-            try:
-                # Import the actual extraction logic directly
-                from tasks_sync import extract_claims_from_document_sync
-                
-                # Generate a unique ID for this sync task
-                sync_task_id = f"sync-{document_id}-{datetime.now().timestamp()}"
-                
-                # Call the extraction function directly
-                result = extract_claims_from_document_sync(document_id)
-                
-                logger.info(f"Synchronous extraction completed for document {document_id}")
-                
-                return {
-                    'id': sync_task_id,
-                    'result': result,
-                    'is_sync': True,
-                    'message': 'Processing claims now - Note: Please use only short documents (1-2 pages) for local testing'
-                }
-            except AttributeError as e:
-                if "has no setter" in str(e) or "Celery" in str(e):
-                    logger.error("Celery not available. Did you set LOCAL_DEV_MODE=true in your .env file?")
-                    raise Exception("Celery not available. Please set LOCAL_DEV_MODE=true in your .env file for local development.")
-                raise
-            except Exception as e:
-                logger.error(f"Error in synchronous extraction: {e}")
-                raise
+            # Import the actual extraction logic directly
+            from tasks_sync import extract_claims_from_document_sync
+            
+            # Generate a unique ID for this sync task
+            sync_task_id = f"sync-{document_id}-{datetime.now().timestamp()}"
+            
+            # Call the extraction function directly
+            result = extract_claims_from_document_sync(document_id)
+            
+            logger.info(f"Synchronous extraction completed for document {document_id}")
+            
+            return {
+                'id': sync_task_id,
+                'result': result,
+                'is_sync': True,
+                'message': 'Processing claims now - Note: Please use only short documents (1-2 pages) for local testing'
+            }
         else:
             # Run with Celery in production
             logger.info(f"Queueing extraction with Celery for document {document_id}")

@@ -22,6 +22,7 @@ def extract_claims_from_document_sync(document_id: str, batch_size: int = 5):
     logger.info(f"Starting synchronous claim extraction for document {document_id}")
     
     # Just use the existing database connection - we're already in the app context
+    from flask import current_app
     from models import db, Document, DraftClaim
     from extractor import extract_claims
     from claim_extractor import ClaimExtractor
@@ -36,44 +37,50 @@ def extract_claims_from_document_sync(document_id: str, batch_size: int = 5):
     doc.processing_started_at = datetime.utcnow()
     db.session.commit()
     
-    try:
-        # Check if API key is available
-        api_key = os.getenv('ANTHROPIC_API_KEY')
-        if not api_key:
-            logger.error("ANTHROPIC_API_KEY environment variable not set!")
-            raise ValueError("ANTHROPIC_API_KEY not configured")
+    # Check if API key is available
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    if not api_key:
+        logger.exception("ANTHROPIC_API_KEY environment variable not set!")
+        raise ValueError("ANTHROPIC_API_KEY not configured")
+    
+    # Initialize extractor with prompt configuration
+    extractor = ClaimExtractor(
+        message_prompt=current_app.config.get('LT_MESSAGE_PROMPT'),
+        extra_system_instructions=current_app.config.get('LT_EXTRA_SYSTEM_PROMPT', '')
+    )
+    logger.info("ClaimExtractor initialized with prompt configuration")
+    
+    # Get total page count
+    with fitz.open(doc.file_path) as pdf:
+        total_pages = len(pdf)
+    
+    # Process pages in batches
+    total_claims_extracted = 0
+    
+    for start_page in range(0, total_pages, batch_size):
+        end_page = min(start_page + batch_size, total_pages)
+        logger.info(f"Processing pages {start_page + 1} to {end_page} of {total_pages}")
         
-        # Initialize extractor before page loop
-        extractor = ClaimExtractor()
-        logger.info("ClaimExtractor initialized successfully")
-        
-        # Get total page count
+        # Extract text from batch of pages
+        batch_texts = []
         with fitz.open(doc.file_path) as pdf:
-            total_pages = len(pdf)
+            for page_num in range(start_page, end_page):
+                page = pdf.load_page(page_num)
+                page_text = page.get_text()
+                # Clean up the text
+                cleaned_text = re.sub(r'\s+', ' ', page_text).strip()
+                if cleaned_text:  # Only process pages with text
+                    batch_texts.append((page_num + 1, cleaned_text))
         
-        # Process pages in batches
-        total_claims_extracted = 0
-        
-        for start_page in range(0, total_pages, batch_size):
-            end_page = min(start_page + batch_size, total_pages)
-            logger.info(f"Processing pages {start_page + 1} to {end_page} of {total_pages}")
-            
-            # Extract text from batch of pages
-            batch_texts = []
-            with fitz.open(doc.file_path) as pdf:
-                for page_num in range(start_page, end_page):
-                    page = pdf.load_page(page_num)
-                    page_text = page.get_text()
-                    # Clean up the text
-                    cleaned_text = re.sub(r'\s+', ' ', page_text).strip()
-                    if cleaned_text:  # Only process pages with text
-                        batch_texts.append((page_num + 1, cleaned_text))
-            
-            # Extract claims from each page
-            for page_num, text in batch_texts:
+        # Extract claims from each page
+        for page_num, text in batch_texts:
                 if not text or len(text) < 50:  # Skip empty or very short pages
                     logger.info(f"Skipping page {page_num} - too short ({len(text)} chars)")
                     continue
+            
+                logger.info(f"Extracting claims from page {page_num} with {len(text)} characters")
+            
+
                 
                 try:
                     logger.info(f"Extracting claims from page {page_num} with {len(text)} characters")
@@ -146,27 +153,16 @@ def extract_claims_from_document_sync(document_id: str, batch_size: int = 5):
                 except Exception as e:
                     logger.error(f"Error extracting claims from page {page_num}: {e}")
                     continue
-            
-            # Commit batch
-            db.session.commit()
-            logger.info(f"Extracted {total_claims_extracted} claims so far")
-        
-        # Update document status
-        doc.status = 'completed'
-        doc.processing_completed_at = datetime.utcnow()
-        db.session.commit()
-        
-        logger.info(f"Completed extraction: {total_claims_extracted} claims from {total_pages} pages")
-        return {
-            'document_id': document_id,
-            'total_pages': total_pages,
-            'total_claims': total_claims_extracted,
-            'status': 'completed'
-        }
-        
-    except Exception as e:
-        logger.error(f"Error processing document {document_id}: {e}")
-        doc.status = 'failed'
-        doc.error_message = str(e)
-        db.session.commit()
-        raise
+    
+# Update document status
+doc.status = 'completed'
+doc.processing_completed_at = datetime.utcnow()
+db.session.commit()
+    
+logger.info(f"Completed extraction: {total_claims_extracted} claims from {total_pages} pages")
+return {
+        'document_id': document_id,
+        'total_pages': total_pages,
+        'total_claims': total_claims_extracted,
+        'status': 'completed'
+}
