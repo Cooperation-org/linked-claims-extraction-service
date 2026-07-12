@@ -98,3 +98,7 @@ local.db
 
 # OS
 .DS_Store
+
+# Local SQLite instance data
+instance/
+*.db

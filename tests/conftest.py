@@ -16,6 +16,9 @@ os.environ['CELERY_EAGER_PROPAGATES_EXCEPTIONS'] = 'True'
 os.environ['CELERY_RESULT_BACKEND'] = 'cache+memory://'
 os.environ['CELERY_BROKER_URL'] = 'memory://'
 
+# tasks.py requires DATABASE_URL at import time (no production fallback)
+os.environ.setdefault('DATABASE_URL', 'sqlite:///:memory:')
+
 @pytest.fixture(scope='session')
 def celery_config():
     """Celery configuration for tests"""

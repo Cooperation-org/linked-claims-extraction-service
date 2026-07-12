@@ -102,10 +102,11 @@ class LocalRAG:
         context = self._format_context(results)
         
         # Query Claude
+        # claude-sonnet-5 rejects non-default sampling parameters, so no
+        # temperature here.
         message = self.anthropic.messages.create(
-            model="claude-3-sonnet-20240229",
+            model=os.getenv("CLAUDE_MODEL", "claude-sonnet-5"),
             max_tokens=1024,
-            temperature=0,
             messages=[{
                 "role": "user",
                 "content": f"""Using only the context below, answer this question: {question}
