@@ -134,6 +134,12 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
             
             # Process pages in batches
             total_claims_extracted = 0
+            total_duplicates_skipped = 0
+
+            # Seed duplicate detection with any drafts already stored for this
+            # document (re-runs, overlapping batches)
+            from extraction_common import existing_statement_keys
+            seen_statement_keys = existing_statement_keys(DraftClaim, document_id)
             
             for start_page in range(0, total_pages, batch_size):
                 end_page = min(start_page + batch_size, total_pages)
@@ -182,10 +188,12 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
                         
                         if not page_claims:
                             continue
-                            
+
                         for claim_data in page_claims:
                             # Import URL generation utility
                             from url_generator import improve_claim_urls
+                            from extraction_common import (
+                                is_new_statement, normalize_verifiability)
                             
                             # Improve URLs using our enhanced logic
                             improved_claim = improve_claim_urls(claim_data, text)
@@ -205,7 +213,14 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
                             
                             if obj and not obj.startswith(('http://', 'https://')):
                                 obj = f"{doc.public_url}#object-{obj[:50]}"
-                            
+
+                            # Skip duplicates (same normalized statement already
+                            # extracted for this document)
+                            if not is_new_statement(seen_statement_keys, statement):
+                                total_duplicates_skipped += 1
+                                logger.info(f"Skipping duplicate claim on page {page_num}: {statement[:80]}")
+                                continue
+
                             # Create draft claim
                             draft_claim = DraftClaim(
                                 document_id=document_id,
@@ -222,6 +237,7 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
                                     'amt': claim_data.get('amt'),
                                     'unit': claim_data.get('unit'),
                                     'howMeasured': claim_data.get('howMeasured'),
+                                    'verifiability': normalize_verifiability(claim_data.get('verifiability')),
                                     'subject_entity_type': improved_claim.get('subject_entity_type'),
                                     'object_entity_type': improved_claim.get('object_entity_type'),
                                     'subject_suggested': improved_claim.get('subject_suggested'),
@@ -248,11 +264,13 @@ def extract_claims_from_document(self, document_id: str, batch_size: int = 5):
             doc.processing_completed_at = datetime.utcnow()
             db.session.commit()
             
-            logger.info(f"Completed extraction: {total_claims_extracted} claims from {total_pages} pages")
+            logger.info(f"Completed extraction: {total_claims_extracted} claims from {total_pages} pages "
+                        f"({total_duplicates_skipped} duplicates skipped)")
             return {
                 'document_id': document_id,
                 'total_pages': total_pages,
                 'total_claims': total_claims_extracted,
+                'duplicates_skipped': total_duplicates_skipped,
                 'status': 'completed'
             }
             

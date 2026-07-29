@@ -11,6 +11,49 @@ from typing import Dict, List, Tuple, Optional, Any
 logger = logging.getLogger(__name__)
 
 
+# Allowed values for the extractor's verifiability label. Anything else from
+# the model is coerced to 'unclear' so downstream filters can rely on the enum.
+VERIFIABILITY_VALUES = ('measurable_past', 'projection', 'aspiration', 'unclear')
+
+
+def normalize_verifiability(value: Optional[str]) -> str:
+    v = (value or '').strip().lower()
+    return v if v in VERIFIABILITY_VALUES else 'unclear'
+
+
+def normalize_statement(statement: Optional[str]) -> str:
+    """
+    Canonical form of a claim statement for duplicate detection: lowercase,
+    whitespace collapsed, surrounding quotes/punctuation stripped.
+    """
+    if not statement:
+        return ''
+    s = re.sub(r'\s+', ' ', statement).strip().lower()
+    return s.strip(' ."“”\'')
+
+
+def existing_statement_keys(draft_claim_model, document_id: str) -> set:
+    """
+    Normalized statements of drafts already stored for a document, so a re-run
+    or overlapping page batch does not insert the same claim twice.
+    """
+    rows = draft_claim_model.query.with_entities(draft_claim_model.statement) \
+        .filter_by(document_id=document_id).all()
+    return {normalize_statement(r[0]) for r in rows if r[0]}
+
+
+def is_new_statement(seen_keys: set, statement: Optional[str]) -> bool:
+    """
+    True (and records the statement in seen_keys) if this statement has not
+    been seen for the document yet. Empty statements are never "new".
+    """
+    key = normalize_statement(statement)
+    if not key or key in seen_keys:
+        return False
+    seen_keys.add(key)
+    return True
+
+
 def verify_api_key() -> str:
     """
     Verify that the ANTHROPIC_API_KEY is configured
@@ -173,6 +216,7 @@ def process_claim_data(
             'amt': claim_data.get('amt'),
             'unit': claim_data.get('unit'),
             'howMeasured': claim_data.get('howMeasured'),
+            'verifiability': normalize_verifiability(claim_data.get('verifiability')),
             'subject_entity_type': improved_claim.get('subject_entity_type'),
             'object_entity_type': improved_claim.get('object_entity_type'),
             'subject_suggested': improved_claim.get('subject_suggested'),

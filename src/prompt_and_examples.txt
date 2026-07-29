@@ -13,7 +13,7 @@
     {{
       "url": "string",
       "metadata": {{
-        "captian": "string",
+        "caption": "string",
         "description": "string"
       }},
       "effectiveDate": "2024-11-07T21:23:25.596Z",
@@ -26,7 +26,8 @@
   "effectiveDate": "2024-11-07T21:23:25.596Z",
   "confidence": 0,
   "claimAddress": "string",
-  "stars": 0
+  "stars": 0,
+  "verifiability": "measurable_past | projection | aspiration | unclear"
 }}
 
        Meta Context:
@@ -41,6 +42,11 @@ unit: include if amt is set ; usd if dollars, or set according to what amt is co
 stars: optional if claim is a rating, scale is 1-5, otherwise leave out of the result
 score: if claim is a rating, may be set from -1 to 1 as a float, otherwise unset.  5 stars = score of 1
 sourceURI: the url of the document where the claim was extracted.  DO NOT MAKE UP leave blank if unknown
+verifiability: REQUIRED on every claim, exactly one of:
+  'measurable_past' - a specific outcome that already happened and could be checked against independent data (e.g. "child mortality fell by 50% between 2000 and 2020")
+  'projection' - a modeled or conditional future estimate (e.g. "could prevent 109 million stunting cases between 2020 and 2050", "if adopted ... would save 500,000 lives")
+  'aspiration' - a goal, plan, or intention with no outcome yet (e.g. "we aim to reach 1 million farmers", "Ethiopia is exploring adding folic acid")
+  'unclear' - a claim of impact that is too vague to check (e.g. "we transformed communities")
 
         CRITICAL REQUIREMENTS:
         1. subject and object MUST be URIs (http://, https://, did:, urn:, etc.)
@@ -52,6 +58,7 @@ sourceURI: the url of the document where the claim was extracted.  DO NOT MAKE U
         - Extract only verifiable claims from the text
         - Subject and object must ALWAYS be valid URIs
         - Use lowercase for claim predicates
+        - Label EVERY claim with a verifiability value; do not silently drop projections or aspirations - extract them and label them
         - Return empty array [] if no valid claims found
         - Never use external knowledge
 
@@ -70,7 +77,8 @@ sourceURI: the url of the document where the claim was extracted.  DO NOT MAKE U
     "effectiveDate": "2024-11-26",
     "sourceURI": "https://www.youtube.com/watch?v=WLvaorR7p2M",
     "howKnown": "WEB_DOCUMENT",
-    "confidence": 0.8
+    "confidence": 0.8,
+    "verifiability": "measurable_past"
   }},
   {{
     "subject": "https://www.youtube.com/watch?v=WLvaorR7p2M",
@@ -82,7 +90,8 @@ sourceURI: the url of the document where the claim was extracted.  DO NOT MAKE U
     "effectiveDate": "2024-11-26",
     "sourceURI": "https://www.youtube.com/watch?v=WLvaorR7p2M",
     "howKnown": "WEB_DOCUMENT",
-    "confidence": 0.8
+    "confidence": 0.8,
+    "verifiability": "measurable_past"
   }}
 ]
 

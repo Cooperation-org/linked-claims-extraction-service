@@ -56,6 +56,11 @@ def extract_claims_from_document_sync(document_id: str, batch_size: int = 5):
     
     # Process pages in batches
     total_claims_extracted = 0
+
+    # Seed duplicate detection with any drafts already stored for this document
+    from extraction_common import (
+        existing_statement_keys, is_new_statement, normalize_verifiability)
+    seen_statement_keys = existing_statement_keys(DraftClaim, document_id)
     
     for start_page in range(0, total_pages, batch_size):
         end_page = min(start_page + batch_size, total_pages)
@@ -120,7 +125,13 @@ def extract_claims_from_document_sync(document_id: str, batch_size: int = 5):
                         
                         if obj and not obj.startswith(('http://', 'https://')):
                             obj = f"{doc.public_url}#object-{obj[:50]}"
-                        
+
+                        # Skip duplicates (same normalized statement already
+                        # extracted for this document)
+                        if not is_new_statement(seen_statement_keys, statement):
+                            logger.info(f"Skipping duplicate claim on page {page_num}: {statement[:80]}")
+                            continue
+
                         # Create draft claim
                         draft_claim = DraftClaim(
                             document_id=document_id,
@@ -137,6 +148,7 @@ def extract_claims_from_document_sync(document_id: str, batch_size: int = 5):
                                 'amt': claim_data.get('amt'),
                                 'unit': claim_data.get('unit'),
                                 'howMeasured': claim_data.get('howMeasured'),
+                                'verifiability': normalize_verifiability(claim_data.get('verifiability')),
                                 'subject_entity_type': improved_claim.get('subject_entity_type'),
                                 'object_entity_type': improved_claim.get('object_entity_type'),
                                 'subject_suggested': improved_claim.get('subject_suggested'),
