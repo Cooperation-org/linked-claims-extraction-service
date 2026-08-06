@@ -19,8 +19,13 @@ load_dotenv()
 
 def get_app():
     """Get or create Flask app for Celery context"""
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        # The worker must share the web app's database; a fallback here would
+        # silently write drafts somewhere the app never reads.
+        raise RuntimeError("DATABASE_URL must be set for the Celery worker")
     app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://extractor:fluffyHedgehog2025@localhost/extractor')
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     from models import db
